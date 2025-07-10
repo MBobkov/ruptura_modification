@@ -47,7 +47,6 @@ examples/*/*/density_grids/
 *.dylib
 *.so
 *.pcm
-*.exe
 
 ### macOS ###
 *.DS_Store
