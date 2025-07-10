@@ -207,4 +207,3 @@ dist/
 *.egg-info/
 .installed.cfg
 *.egg
-*.exe
