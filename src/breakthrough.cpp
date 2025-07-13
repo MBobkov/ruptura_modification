@@ -446,12 +446,35 @@ void Breakthrough::run()
         movieStream << static_cast<double>(i) * dx << " ";
         movieStream << V[i] << " ";
         movieStream << Pt[i] << " ";
-        for (size_t j = 0; j < Ncomp; ++j)
+        if ( indexLeft == 0 ) {
+          for (size_t j = 0; j < Ncomp; ++j)
         {
           movieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
                       << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
                       << Dqdt[i * Ncomp + j] << " ";
         }
+        }
+
+        if ( i <= indexLeft && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          movieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i >= indexRight && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          movieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+
+        
         movieStream << "\n";
       }
       movieStream << "\n\n";
