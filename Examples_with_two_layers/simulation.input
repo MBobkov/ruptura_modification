@@ -3,7 +3,8 @@ SimulationType           Breakthrough
 // Column settings
 DisplayName              Zeoltie-5A-N2-exp6
 Temperature              295           // [K]
-ColumnVoidFraction       0.4             // [-]
+ColumnVoidFraction       0.4             // [-]       LEFT LAYER ( AC )
+ColumnVoidFraction_1       0.38             // [-]    RIGHT LAYER (Zeolite) 
 ParticleDensity          700       // [kg/m^3]      LEFT LAYER ( AC )
 ParticleDensity_1        1180       // [kg/m^3]     RIGHT LAYER (Zeolite) 
 BoundaryCoord            0.183      // [m]
