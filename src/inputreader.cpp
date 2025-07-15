@@ -255,6 +255,12 @@ InputReader::InputReader(const std::string fileName) : components()
         this->columnVoidFraction = value;
         continue;
       }
+      if (caseInSensStringCompare(keyword, "ColumnVoidFraction_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->columnVoidFraction_1 = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "ParticleDensity"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);

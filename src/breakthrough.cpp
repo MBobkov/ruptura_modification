@@ -65,6 +65,7 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       p_total(inputReader.totalPressure),
       dptdx(inputReader.pressureGradient),
       epsilon(inputReader.columnVoidFraction),
+      epsilon1(inputReader.columnVoidFraction_1),
       rho_p(inputReader.particleDensity),
       rho_p1(inputReader.particleDensity1),
       boundaryCoordinate(inputReader.boundary_coord),
@@ -286,12 +287,12 @@ void Breakthrough::initialize()
 
   for (size_t j = 0; j < Ncomp; ++j)
   {
-    prefactorRightGP[j] = R * T * ((1.0 - epsilon) / epsilon) * ( rho_p*relRight + rho_p1*relLeft ) * ( components[j].Kl*relRight + components[j].Kl1*relLeft );
+    prefactorRightGP[j] = R * T * ((1.0 - epsilon1) / epsilon1) * ( rho_p*relRight + rho_p1*relLeft ) * ( components[j].Kl*relRight + components[j].Kl1*relLeft );
   }
   
   for (size_t j = 0; j < Ncomp; ++j)
   {
-    prefactorRight[j] = R * T * ((1.0 - epsilon) / epsilon) * rho_p1 * components[j].Kl1;
+    prefactorRight[j] = R * T * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1;
   }
 
   // set P and Q to zero
@@ -978,7 +979,8 @@ std::string Breakthrough::repr() const
   s += "RelLeft:                               " + std::to_string(relLeft) + " [K]\n";
   s += "NCOMP:                               " + std::to_string(Ncomp) + " [K]\n";
   s += "Column length:                         " + std::to_string(L) + " [m]\n";
-  s += "Column void-fraction:                  " + std::to_string(epsilon) + " [-]\n";
+  s += "Column void-fraction for left layer:                  " + std::to_string(epsilon) + " [-]\n";
+  s += "Column void-fraction for left right:                  " + std::to_string(epsilon1) + " [-]\n";
   s += "Particle density:                      " + std::to_string(rho_p) + " [kg/m^3]\n";
   s += "2nd Particle density:                  " + std::to_string(rho_p1) + " [kg/m^3]\n";
   s += "X-Coord of the boundary:               " + std::to_string(boundaryCoordinate) + " [m]\n";

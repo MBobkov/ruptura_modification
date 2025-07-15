@@ -46,6 +46,7 @@ struct InputReader
   std::string displayName{"Column"};                            ///< The display name for the simulation.
   double temperature{433.0};                                    ///< The simulation temperature in Kelvin.
   double columnVoidFraction{0.4};                               ///< The void fraction of the column.
+  double columnVoidFraction_1{0.4};                               ///< The void fraction of the column.
   double particleDensity{1000.0};                               ///< The density of the particles in kg/m^3.
   double particleDensity1{1000.0};                              ///< The density of the 2nd particles in kg/m^3.    
   double totalPressure{1.0e6};                                  ///< The total pressure in the system in Pa.

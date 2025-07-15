@@ -147,6 +147,7 @@ struct Breakthrough
   double p_total;  ///< Total pressure column [Pa].
   double dptdx;    ///< Pressure gradient [N/m³].
   double epsilon;  ///< Void-fraction of the column [-].
+  double epsilon1;  ///< Void-fraction of the column [-].
   double rho_p;    ///< Particle density [kg/m³].
   double rho_p1;    ///< Particle density [kg/m³].
   double boundaryCoordinate;  ///< boundary x coord
