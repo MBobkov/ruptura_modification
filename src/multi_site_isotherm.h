@@ -21,8 +21,8 @@
  */
 struct MultiSiteIsotherm
 {
-  size_t numberOfSites{0};        ///< The number of isotherm sites included in the model.
-  size_t numberOfSitesLayers{0};
+  size_t numberOfSites{0};        ///< The number of isotherm sites included in the model for 1st layer.
+  size_t numberOfSites1{0};        ///< The number of isotherm sites included in the model for 2nd layer.
   std::vector<Isotherm> sites{};  ///< A vector containing the individual isotherm site objects.
 
   size_t numberOfParameters{0};  ///< The total number of parameters across all isotherm sites.
@@ -130,14 +130,26 @@ struct MultiSiteIsotherm
    * \param pressure The pressure at which to evaluate the adsorption.
    * \return The total adsorption value.
    */
-  inline double value(double pressure) const
+  inline double value(size_t site, double pressure) const
   {
     double sum = 0.0;
-    for (size_t i = 0; i < numberOfSites; ++i)
+    if (site == 0) {
+      for (size_t i = 0; i < numberOfSites; ++i)                                // value function changed for two layers model
     {
       sum += sites[i].value(pressure);
     }
+  }
+
+    if (site == 1) {
+      for (size_t i = numberOfSites; i < numberOfSites1 + numberOfSites; ++i)     
+    {
+      sum += sites[i].value(pressure);
+    }
+
+    }
+
     return sum;
+    
   }
 
   /**
@@ -149,14 +161,14 @@ struct MultiSiteIsotherm
    * \param pressure The pressure at which to evaluate the adsorption.
    * \return The adsorption value for the specified site, or 0.0 if the site index is invalid.
    */
-  inline double value(size_t site, double pressure) const
-  {
-    if (site < numberOfSites + 1)         // site < numberOfSites
-    {
-      return sites[site].value(pressure);
-    }
-    return 0.0;
-  }
+  //inline double value(size_t site, double pressure) const
+  //{
+  //  if (site < numberOfSites + 1)         // site < numberOfSites      // We use value function upward
+  //  {
+  //    return sites[site].value(pressure);
+  //  }
+ // return 0.0;
+//  }
 
   /**
    * \brief Computes the reduced grand potential at a given pressure.
@@ -166,14 +178,26 @@ struct MultiSiteIsotherm
    * \param pressure The pressure at which to compute the reduced grand potential.
    * \return The total reduced grand potential.
    */
-  inline double psiForPressure(double pressure) const
+  inline double psiForPressure(size_t site, double pressure) const
   {
     double sum = 0.0;
-    for (size_t i = 0; i < numberOfSites; ++i)
+
+    if (site == 0) {
+      for (size_t i = 0; i < numberOfSites; ++i)                                // value function changed for two layers model
+    {
+      sum += sites[i].psiForPressure(pressure);                                 // sites = [Isotherm1Layer1, Isotherm2Layer1, Isotherm1Layer2, Isotherm2Layer2]
+    }
+  }
+
+    if (site == 1) {
+      for (size_t i = numberOfSites; i < numberOfSites1 + numberOfSites; ++i)     
     {
       sum += sites[i].psiForPressure(pressure);
     }
+
+    }
     return sum;
+    
   }
 
   /**
@@ -185,14 +209,14 @@ struct MultiSiteIsotherm
    * \param pressure The pressure at which to compute the reduced grand potential.
    * \return The reduced grand potential for the specified site, or 0.0 if the site index is invalid.
    */
-  inline double psiForPressure(size_t site, double pressure) const
-  {
-    if (site < numberOfSites + 1)  // site < numberOfSites
-    {
-      return sites[site].psiForPressure(pressure);
-    }
-    return 0.0;
-  }
+  //inline double psiForPressure(size_t site, double pressure) const
+  //{
+   // if (site < numberOfSites + 1)  // site < numberOfSites                     // PsiForPressure function changed for two layers model
+   // {
+   //   return sites[site].psiForPressure(pressure);
+   // }
+//return 0.0;
+//  }
 
   /**
    * \brief Computes the inverse pressure corresponding to a given reduced grand potential.
@@ -204,7 +228,7 @@ struct MultiSiteIsotherm
    * \param cachedP0 A reference to a cached pressure value for starting point optimization.
    * \return The inverse of the pressure corresponding to the reduced grand potential.
    */
-  double inversePressureForPsi(double reduced_grand_potential, double &cachedP0) const;
+  double inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0) const;
 
   /**
    * \brief Computes the inverse pressure for a specific site corresponding to a given reduced grand potential.
@@ -217,14 +241,14 @@ struct MultiSiteIsotherm
    * \param cachedP0 A reference to a cached pressure value for starting point optimization.
    * \return The inverse of the pressure for the specified site, or 0.0 if the site index is invalid.
    */
-  double inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0) const
-  {
-    if (site < numberOfSites + 1)  // site < numberOfSites
-    {
-      return sites[site].inversePressureForPsi(reduced_grand_potential, cachedP0);
-    }
-    return 0.0;
-  }
+//  double inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0) const
+//  {
+//    if (site < numberOfSites + 1)  // site < numberOfSites                                  
+//    {
+//      return sites[site].inversePressureForPsi(reduced_grand_potential, cachedP0);                       // inversePressureForPsi function changed for two layers model
+//    }
+//    return 0.0;
+//  }
 
   /**
    * \brief Evaluates the fitness of the MultiSiteIsotherm.

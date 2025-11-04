@@ -1,0 +1,68 @@
+SimulationType           Breakthrough
+
+// Column settings
+DisplayName              Zeoltie-5A-mixture-exp-test
+Temperature              295           // [K]
+ColumnVoidFraction       0.43             // [-]       LEFT LAYER ( AC )
+ColumnVoidFraction_1     0.4             // [-]    RIGHT LAYER (Zeolite) 
+ParticleDensity          850       // [kg/m^3]      LEFT LAYER ( AC )
+ParticleDensity_1        1259.2       // [kg/m^3]     RIGHT LAYER (Zeolite) 
+BoundaryCoord            0.073     // [m]
+TotalPressure            1.00e6           // [Pa]
+PressureGradient         -5000        // [Pa/m]
+ColumnEntranceVelocity   1.68E-02        // [m/s]
+ColumnLength             0.365             // [m]
+
+// Run settings
+NumberOfTimeSteps       auto
+PrintEvery              10000
+WriteEvery              100
+TimeStep                0.05           // [s]
+NumberOfGridPoints      100
+
+Component 0 MoleculeName               H2
+            GasPhaseMolFraction        0.757    // [-]
+            CarrierGas                 yes
+
+Component 1 MoleculeName               CH4
+            GasPhaseMolFraction        0.038    // [-]
+	    MassTransferCoefficient    0.195      // [1/s]       LEFT LAYER ( AC )
+	    MassTransferCoefficient_1  0.147     // [1/s]        RIGHT LAYER (Zeolite) 
+	    AxialDispersionCoefficient 0E-06    // [m^2/s]     LEFT LAYER ( AC )
+	    AxialDispersionCoefficient_1 0E-06     // [m^2/s]    RIGHT LAYER (Zeolite)
+	    Layer 0                               // LEFT LAYER ( AC )
+            NumberOfIsothermSites      1
+            Langmuir-Freundlich        7.11232	2.05261e-05	0.782682
+            Layer 1                               // RIGHT LAYER (Zeolite) 
+            NumberOfIsothermSites      2
+            Langmuir-Freundlich        2.0316	 3.14E-06      1.00771
+            Langmuir-Freundlich        0.409588	 4.30E-12      2.124464      
+
+Component 2 MoleculeName               CO
+            GasPhaseMolFraction        0.028    // [-]
+	    MassTransferCoefficient    0.150      // [1/s]       LEFT LAYER ( AC )
+	    MassTransferCoefficient_1  0.063     // [1/s]        RIGHT LAYER (Zeolite) 
+	    AxialDispersionCoefficient 0.000001    // [m^2/s]     LEFT LAYER ( AC )
+	    AxialDispersionCoefficient_1 0E-06     // [m^2/s]    RIGHT LAYER (Zeolite) 
+            Layer 0                               // LEFT LAYER ( AC )
+            NumberOfIsothermSites      1
+            Langmuir-Freundlich        1.79739	 2.0743e-08   1.45554    
+            Layer 1                               // RIGHT LAYER (Zeolite) 
+            NumberOfIsothermSites      2
+            Langmuir-Freundlich        2.39741	 8.21E-06      0.981574
+            Langmuir-Freundlich        0.270119	 5.14E-05      0.979502 
+
+Component 3 MoleculeName               CO2
+            GasPhaseMolFraction        0.177    // [-]
+	    MassTransferCoefficient    0.036      // [1/s]       LEFT LAYER ( AC )
+	    MassTransferCoefficient_1  0.014     // [1/s]        RIGHT LAYER (Zeolite) 
+	    AxialDispersionCoefficient 0.000001    // [m^2/s]     LEFT LAYER ( AC )
+	    AxialDispersionCoefficient_1 0E-06     // [m^2/s]    RIGHT LAYER (Zeolite)
+	    Layer 0                              // LEFT LAYER ( AC )
+            NumberOfIsothermSites      1
+            Langmuir-Freundlich        7.9359	1.32E-05	0.874791    
+            Layer 1                                // RIGHT LAYER (Zeolite) 
+            NumberOfIsothermSites      2
+            Langmuir-Freundlich        3.45282	 2.71E-04      1.03875
+            Langmuir-Freundlich        2.51583	 8.37599E-05   0.698134  
+

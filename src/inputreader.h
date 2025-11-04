@@ -39,6 +39,7 @@ struct InputReader
   size_t numberOfCarrierGases{0};     ///< The number of carrier gas components.
   size_t carrierGasComponent{0};      ///< The index of the carrier gas component.
   size_t maxIsothermTerms{0};         ///< The maximum number of isotherm terms among all components.
+  size_t numberOfLayers{0};           ///< The layers counter.
 
   SimulationType simulationType{SimulationType::Breakthrough};  ///< The type of simulation to perform.
   size_t mixturePredictionMethod{0};                            ///< The method used for mixture prediction.

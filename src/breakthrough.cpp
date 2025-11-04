@@ -129,6 +129,7 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
        indexLeft = i - 1;
        indexMid = i;
        indexRight = i + 1;
+       std::cout << "BOUNDARY IN THE GRID POINT!!!" << std::endl;
        break;
     }
 
@@ -227,6 +228,10 @@ Breakthrough::Breakthrough(std::string _displayName, std::vector<Component> _com
   indexLeft = 0;
   indexMid = 0;
   indexRight = 0;
+
+  if (boundaryCoordinate == L / 2) {
+    boundaryCoordinate = boundaryCoordinate - 0.001;
+  }
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {

@@ -134,6 +134,7 @@ int parseBoolean(const std::string& arguments, const std::string& keyword, size_
 
 InputReader::InputReader(const std::string fileName) : components()
 {
+
   components.reserve(16);
 
   std::ifstream fileInput{fileName};
@@ -427,6 +428,7 @@ InputReader::InputReader(const std::string fileName) : components()
 
       if (caseInSensStringCompare(keyword, std::string("Component")))
       {
+        numberOfLayers = 0;
         std::istringstream ss(arguments);
         std::cout << "arguments: " << arguments << std::endl;
         std::string c, moleculeNameKeyword, remainder, componentName;
@@ -484,12 +486,20 @@ InputReader::InputReader(const std::string fileName) : components()
         continue;
       }
 
+      if (caseInSensStringCompare(keyword, "Layer"))
+      {
+        numberOfLayers += 1;
+        continue;
+      }
+
       if (caseInSensStringCompare(keyword, "NumberOfIsothermSites"))
       {
         size_t value = parse<size_t>(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].isotherm.numberOfSites = value;
+        if (numberOfLayers == 1) { components[numberOfComponents - 1].isotherm.numberOfSites = value; }
+        if (numberOfLayers == 2) { components[numberOfComponents - 1].isotherm.numberOfSites1 = value; }
         continue;
       }
+
       if (caseInSensStringCompare(keyword, "Langmuir"))
       {
         std::vector<double> values = parseListOfSystemValues<double>(arguments, keyword, lineNumber);

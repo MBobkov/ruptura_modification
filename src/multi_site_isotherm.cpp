@@ -10,8 +10,13 @@ void MultiSiteIsotherm::print() const { std::cout << repr(); }
 std::string MultiSiteIsotherm::repr() const
 {
   std::string s;
-  s += "    number of isotherm sites:  " + std::to_string(numberOfSitesLayers) + "\n";   // there was numberOfSites instead numberOfSiteLayers
-  for (size_t i = 0; i < numberOfSitesLayers; ++i) // there was numberOfSites instead numberOfSiteLayers
+  s += "    number of isotherm sites for first layer:  " + std::to_string(numberOfSites) + "\n";   // there was numberOfSites instead numberOfSiteLayers
+  for (size_t i = 0; i < numberOfSites; ++i) // there was numberOfSites instead numberOfSiteLayers
+  {
+    s += sites[i].repr();       // sites uses to store multi isotherms, but now we'll use it like a storage for isotherm-layer object (1st isotherm for 1st layer, 2nd isotherm for 2nd layer), if you want use 
+  }
+  s += "    number of isotherm sites for second layer:  " + std::to_string(numberOfSites1) + "\n";   // there was numberOfSites instead numberOfSiteLayers
+    for (size_t i = numberOfSites; i < numberOfSites + numberOfSites1; ++i) // there was numberOfSites instead numberOfSiteLayers
   {
     s += sites[i].repr();       // sites uses to store multi isotherms, but now we'll use it like a storage for isotherm-layer object (1st isotherm for 1st layer, 2nd isotherm for 2nd layer), if you want use 
   }
@@ -22,7 +27,6 @@ void MultiSiteIsotherm::add(const Isotherm &isotherm)
 {
   siteParameterIndex.push_back(numberOfParameters);
   sites.push_back(isotherm);
-  numberOfSitesLayers++;
   numberOfParameters += isotherm.numberOfParameters;
   for (size_t i = 0; i < isotherm.numberOfParameters; ++i)
   {
@@ -52,7 +56,7 @@ std::vector<double> MultiSiteIsotherm::getParameters()
 
 // returns the inverse-pressure (1/P) that corresponds to the given reduced_grand_potential psi
 // advantage: for isotherms with zero equilibrium constant the result would be infinite, but the inverse is zero
-double MultiSiteIsotherm::inversePressureForPsi(double reduced_grand_potential, double &cachedP0) const
+double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0) const
 {
   const double tiny = 1.0e-15;
 
@@ -60,9 +64,14 @@ double MultiSiteIsotherm::inversePressureForPsi(double reduced_grand_potential, 
   double right_bracket;
 
   // For a single Langmuir or Langmuir-Freundlich site, the inverse can be handled analytically
-  if (numberOfSites == 1)
+  if (numberOfSites == 1 && site == 0)
   {
     return sites[0].inversePressureForPsi(reduced_grand_potential, cachedP0);
+  }
+
+  if (numberOfSites1 == 1 && site == 1)
+  {
+    return sites[numberOfSites].inversePressureForPsi(reduced_grand_potential, cachedP0);
   }
 
   // from here on, work with pressure, and return 1.0 / pressure at the end of the routine
@@ -78,7 +87,7 @@ double MultiSiteIsotherm::inversePressureForPsi(double reduced_grand_potential, 
   }
 
   // use bisection algorithm
-  double s = psiForPressure(p_start);
+  double s = psiForPressure(site, p_start);
 
   size_t nr_steps = 0;
   left_bracket = p_start;
@@ -90,7 +99,7 @@ double MultiSiteIsotherm::inversePressureForPsi(double reduced_grand_potential, 
     do
     {
       right_bracket *= 2.0;
-      s = psiForPressure(right_bracket);
+      s = psiForPressure(site, right_bracket);
 
       ++nr_steps;
       if (nr_steps > 100000)
@@ -110,7 +119,7 @@ double MultiSiteIsotherm::inversePressureForPsi(double reduced_grand_potential, 
     do
     {
       left_bracket *= 0.5;
-      s = psiForPressure(left_bracket);
+      s = psiForPressure(site, left_bracket);
 
       ++nr_steps;
       if (nr_steps > 100000)
@@ -128,7 +137,7 @@ double MultiSiteIsotherm::inversePressureForPsi(double reduced_grand_potential, 
   do
   {
     double middle = 0.5 * (left_bracket + right_bracket);
-    s = psiForPressure(middle);
+    s = psiForPressure(site, middle);
 
     if (s > reduced_grand_potential)
       right_bracket = middle;
