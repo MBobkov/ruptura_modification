@@ -485,7 +485,24 @@ InputReader::InputReader(const std::string fileName) : components()
         components[numberOfComponents - 1].D1 = value;
         continue;
       }
-
+      if (caseInSensStringCompare(keyword, "AdsorptionHeat"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].dH = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "AdsorptionHeat_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].dH1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "MolarMass"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].MolMass = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "Layer"))
       {
         numberOfLayers += 1;

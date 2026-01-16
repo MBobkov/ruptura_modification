@@ -144,6 +144,7 @@ struct Breakthrough
   size_t writeEvery;  ///< Frequency of writing data to files.
 
   double T;        ///< Absolute temperature in Kelvin.
+  double Tamb{295};        ///< Ambient temperature in Kelvin.
   double p_total;  ///< Total pressure column [Pa].
   double dptdx;    ///< Pressure gradient [N/m³].
   double epsilon;  ///< Void-fraction of the column [-].
@@ -155,6 +156,7 @@ struct Breakthrough
   size_t indexRight{0};
   size_t indexMid{0};
   double dxLeft, dxRight, relLeft, relRight;
+  //double Mol_mass_avg{0};
   double v_in;     ///< Interstitial velocity at the beginning of the column [m/s].
 
   double L;                                         ///< Length of the column.
@@ -200,10 +202,18 @@ struct Breakthrough
   std::vector<double> Dpdtnew;    ///< Updated derivative of P with respect to time.
   std::vector<double> Dqdt;       ///< Derivative of Q with respect to time.
   std::vector<double> Dqdtnew;    ///< Updated derivative of Q with respect to time.
+  std::vector<double> DTdt;       ///< Derivative of T with respect to time.
+  std::vector<double> DTdtnew;       ///< Updated derivative of T with respect to time.
   std::vector<double> cachedP0;   ///< Cached hypothetical pressure.
   std::vector<double> cachedP01;   ///< Cached hypothetical pressure.
   std::vector<double> cachedPsi;  ///< Cached reduced grand potential over the column.
   std::vector<double> cachedPsi1;  ///< Cached reduced grand potential over the column.
+  std::vector<double> Tgs;  ///< Gas tempreture
+  std::vector<double> Tgsnew;  ///< Gas tempreture
+  std::vector<double> Tw;  ///< Wall tempreture  
+  std::vector<double> Twnew;  ///< Wall tempreture
+  std::vector<double> rho_gas;  ///< Gas density
+  std::vector<double> Mol_mix;  ///< Average molar mass
 
   enum class IntegrationScheme
   {
@@ -223,9 +233,9 @@ struct Breakthrough
    * \param v Interstitial gas velocities.
    * \param p Partial pressures.
    */
-  void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt,
+  void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt,
                                            const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &pp);
+                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmp);
 
   /**
    * \brief Computes a single simulation step.

@@ -48,6 +48,19 @@ struct InputReader
   double temperature{433.0};                                    ///< The simulation temperature in Kelvin.
   double columnVoidFraction{0.4};                               ///< The void fraction of the column.
   double columnVoidFraction_1{0.4};                               ///< The void fraction of the column.
+  double Cpg{1000.0};                               ///< Gas specific heat capacity [J/(kg·K)]
+  double Cpg_1{1000.0};                               ///< Gas specific heat capacity [J/(kg·K)]
+  double Cps{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
+  double Cps_1{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
+  double Cpw{1000.0};                              ///< Specific heat capacity of the wall material [J/(kg·K)]
+  double Ceff{1000.0};                              ///< Specific effective capacity of gas + sorbent [J/(kg·K)]
+  double Ceff_1{1000.0};                              ///< Specific effective capacity of gas + sorbent [J/(kg·K)]
+  double lambda_ax{1000.0};                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
+  double lambda_ax_1{1000.0};                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
+  double lambda_w{1000.0};                              ///< Thermal conductivity of the wall material [W/(m·K)] (optional, if we consider the longitudinal conductivity of the wall)
+  double h_in{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
+  double h_in_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
+  double D_column_inner{1000.0};                              ///< Diameter of inner column [m]
   double particleDensity{1000.0};                               ///< The density of the particles in kg/m^3.
   double particleDensity1{1000.0};                              ///< The density of the 2nd particles in kg/m^3.    
   double totalPressure{1.0e6};                                  ///< The total pressure in the system in Pa.
