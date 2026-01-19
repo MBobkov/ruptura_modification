@@ -299,7 +299,7 @@ double Fitting::fitness(const MultiSiteIsotherm &phenotype)
   {
     double pressure = dataPoint.first;
     double loading = dataPoint.second;
-    double difference = loading - phenotype.value(0, pressure);         // Zero for avoiding errors
+    double difference = loading - phenotype.value(0, pressure, 295);         // Zero for avoiding errors
     // double weight = 1.0/(1.0+loading);
     double weight = 1.0;
     fitnessValue += weight * difference * difference;
@@ -327,16 +327,16 @@ double Fitting::RCorrelation(const MultiSiteIsotherm &phenotype)
     double pressure = dataPoint.first;
     double loading = dataPoint.second;
     loading_avg_o += loading / static_cast<double>(m);
-    loading_avg_e += phenotype.value(0, pressure) / static_cast<double>(m);    // Zero for avoiding errors
+    loading_avg_e += phenotype.value(0, pressure, 295) / static_cast<double>(m);    // Zero for avoiding errors
   }
 
   for (std::pair<double, double> dataPoint : rawData)
   {
     double pressure = dataPoint.first;
     double loading = dataPoint.second;
-    tmp1 += (loading - loading_avg_o) * (phenotype.value(0, pressure) - loading_avg_e);          // Zero for avoiding errors
+    tmp1 += (loading - loading_avg_o) * (phenotype.value(0, pressure, 295) - loading_avg_e);          // Zero for avoiding errors
     tmp2 += (loading - loading_avg_o) * (loading - loading_avg_o);
-    tmp3 += (phenotype.value(0, pressure) - loading_avg_e) * (phenotype.value(0, pressure) - loading_avg_e);      // Zero for avoiding errors
+    tmp3 += (phenotype.value(0, pressure, 295) - loading_avg_e) * (phenotype.value(0, pressure, 295) - loading_avg_e);      // Zero for avoiding errors
   }
   RCorrelationValue = tmp1 / sqrt(tmp2 * tmp3);
 

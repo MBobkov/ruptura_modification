@@ -117,7 +117,7 @@ MixturePrediction::MixturePrediction(std::string _displayName, std::vector<Compo
 
 std::pair<size_t, size_t> MixturePrediction::predictMixture(size_t site, const std::vector<double> &Yi, const double &P,
                                                             std::vector<double> &Xi, std::vector<double> &Ni,
-                                                            double *cachedP0, double *cachedPsi)
+                                                            double *cachedP0, double *cachedPsi, const double &T) // Temperature added
 {
   const double tiny = 1.0e-10;
 
@@ -160,7 +160,7 @@ std::pair<size_t, size_t> MixturePrediction::predictMixture(size_t site, const s
       {
         case IASTMethod::FastIAST:
         default:
-          return computeFastIAST(site, Yi, P, Xi, Ni, cachedP0, cachedPsi);
+          return computeFastIAST(site, Yi, P, Xi, Ni, cachedP0, cachedPsi, T);
         case IASTMethod::NestedLoopBisection:
           return computeIASTNestedLoopBisection(Yi, P, Xi, Ni, cachedP0, cachedPsi);
       }
@@ -186,7 +186,7 @@ std::pair<size_t, size_t> MixturePrediction::predictMixture(size_t site, const s
 // Ni  = number of adsorbed molecules of component i
 std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const std::vector<double> &Yi, const double &P,
                                                              std::vector<double> &Xi, std::vector<double> &Ni,
-                                                             double *cachedP0, double *cachedPsi)
+                                                             double *cachedP0, double *cachedPsi, const double &Tmp)
 {
   const double tiny = 1.0e-13;
 
@@ -209,7 +209,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const 
     double initial_psi = 0.0;
     for (size_t i = 0; i < Nsorted; ++i)
     {
-      double temp_psi = Yi[sortedComponents[i].id] * sortedComponents[i].isotherm.psiForPressure(site, P); // here
+      double temp_psi = Yi[sortedComponents[i].id] * sortedComponents[i].isotherm.psiForPressure(site, P, Tmp); // here
       initial_psi += temp_psi;
     }
     cachedPsi[0] = initial_psi;
@@ -217,7 +217,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const 
     double cachevalue = 0.0;
     for (size_t i = 0; i < Nsorted; ++i)
     {
-      pstar[i] = 1.0 / sortedComponents[i].isotherm.inversePressureForPsi(site, initial_psi, cachevalue);  // here
+      pstar[i] = 1.0 / sortedComponents[i].isotherm.inversePressureForPsi(site, initial_psi, cachevalue, Tmp);  // here
     }
   }
 
@@ -228,8 +228,8 @@ std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const 
     // compute G
     for (size_t i = 0; i < Nsorted - 1; ++i)
     {
-      G[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i]) -  
-             sortedComponents[Nsorted - 1].isotherm.psiForPressure(site, pstar[Nsorted - 1]);   // here
+      G[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i], Tmp) -  
+             sortedComponents[Nsorted - 1].isotherm.psiForPressure(site, pstar[Nsorted - 1], Tmp);   // here
     }
 
     G[Nsorted - 1] = 0.0;
@@ -242,12 +242,12 @@ std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const 
     // compute Jacobian matrix Phi
     for (size_t i = 0; i < Nsorted - 1; i++)
     {
-      Phi[i + i * Nsorted] = sortedComponents[i].isotherm.value(site, pstar[i]) / pstar[i];  // here
+      Phi[i + i * Nsorted] = sortedComponents[i].isotherm.value(site, pstar[i], Tmp) / pstar[i];  // here
     }
     for (size_t i = 0; i < Nsorted - 1; i++)
     {
       Phi[i + (Nsorted - 1) * Nsorted] =
-          -sortedComponents[Nsorted - 1].isotherm.value(site, pstar[Nsorted - 1]) / pstar[Nsorted - 1];  // here
+          -sortedComponents[Nsorted - 1].isotherm.value(site, pstar[Nsorted - 1], Tmp) / pstar[Nsorted - 1];  // here
     }
     for (size_t i = 0; i < Nsorted; i++)
     {
@@ -286,7 +286,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const 
     // compute error in psi's
     for (size_t i = 0; i < Nsorted; i++)
     {
-      psi[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i]);  // here
+      psi[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i], Tmp);  // here
     }
 
     sum_xi = 0.0;
@@ -332,7 +332,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastIAST(size_t site, const 
   double inverse_q_total = 0.0;
   for (size_t i = 0; i < Nsorted; ++i)
   {
-    inverse_q_total += Xi[sortedComponents[i].id] / sortedComponents[i].isotherm.value(site, pstar[i]);   // here
+    inverse_q_total += Xi[sortedComponents[i].id] / sortedComponents[i].isotherm.value(site, pstar[i], Tmp);   // here
   }
   for (size_t i = 0; i < Ncomp; ++i)
   {
@@ -407,7 +407,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastSIAST(size_t site, const
     double initial_psi = 0.0;
     for (size_t i = 0; i < Nsorted; ++i)
     {
-      double temp_psi = Yi[sortedComponents[i].id] * sortedComponents[i].isotherm.psiForPressure(site, P);
+      double temp_psi = Yi[sortedComponents[i].id] * sortedComponents[i].isotherm.psiForPressure(site, P, 295.0); 
       initial_psi += temp_psi;
     }
     cachedPsi[site] = initial_psi;
@@ -415,7 +415,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastSIAST(size_t site, const
     double cachevalue = 0.0;
     for (size_t i = 0; i < Nsorted; ++i)
     {
-      pstar[i] = 1.0 / sortedComponents[i].isotherm.inversePressureForPsi(site, initial_psi, cachevalue);
+      pstar[i] = 1.0 / sortedComponents[i].isotherm.inversePressureForPsi(site, initial_psi, cachevalue, 295.0);
     }
   }
 
@@ -426,8 +426,8 @@ std::pair<size_t, size_t> MixturePrediction::computeFastSIAST(size_t site, const
     // compute G
     for (size_t i = 0; i < Nsorted - 1; ++i)
     {
-      G[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i]) -
-             sortedComponents[Nsorted - 1].isotherm.psiForPressure(site, pstar[Nsorted - 1]);
+      G[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i], 295.0) -
+             sortedComponents[Nsorted - 1].isotherm.psiForPressure(site, pstar[Nsorted - 1], 295.0);
     }
 
     G[Nsorted - 1] = 0.0;
@@ -440,12 +440,12 @@ std::pair<size_t, size_t> MixturePrediction::computeFastSIAST(size_t site, const
     // compute Jacobian matrix Phi
     for (size_t i = 0; i < Nsorted - 1; i++)
     {
-      Phi[i + i * Nsorted] = sortedComponents[i].isotherm.value(site, pstar[i]) / pstar[i];
+      Phi[i + i * Nsorted] = sortedComponents[i].isotherm.value(site, pstar[i], 295.0) / pstar[i];
     }
     for (size_t i = 0; i < Nsorted - 1; i++)
     {
       Phi[i + (Nsorted - 1) * Nsorted] =
-          -sortedComponents[Nsorted - 1].isotherm.value(site, pstar[Nsorted - 1]) / pstar[Nsorted - 1];
+          -sortedComponents[Nsorted - 1].isotherm.value(site, pstar[Nsorted - 1], 295.0) / pstar[Nsorted - 1];
     }
     for (size_t i = 0; i < Nsorted; i++)
     {
@@ -484,7 +484,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastSIAST(size_t site, const
     // compute error in psi's
     for (size_t i = 0; i < Nsorted; i++)
     {
-      psi[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i]);
+      psi[i] = sortedComponents[i].isotherm.psiForPressure(site, pstar[i], 295.0);
     }
 
     sum_xi = 0.0;
@@ -530,7 +530,7 @@ std::pair<size_t, size_t> MixturePrediction::computeFastSIAST(size_t site, const
   double inverse_q_total = 0.0;
   for (size_t i = 0; i < Nsorted; ++i)
   {
-    inverse_q_total += Xi[sortedComponents[i].id] / sortedComponents[i].isotherm.value(site, pstar[i]);
+    inverse_q_total += Xi[sortedComponents[i].id] / sortedComponents[i].isotherm.value(site, pstar[i], 295.0);
   }
   for (size_t i = 0; i < Ncomp; ++i)
   {
@@ -558,7 +558,7 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
   double initial_psi = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    initial_psi += Yi[i] * components[i].isotherm.psiForPressure(0, P);  // Changed for avoid errors  //
+    initial_psi += Yi[i] * components[i].isotherm.psiForPressure(0, P, 295.0);  // Changed for avoid errors  //
   }
 
   if (initial_psi < tiny)
@@ -587,7 +587,7 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
   double sumXi = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, initial_psi, cachedP0[i]);        // Zero for avoiding errors
+    sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, initial_psi, cachedP0[i], 295.0);        // Zero for avoiding errors
   }
 
   // initialize the bisection algorithm
@@ -602,7 +602,7 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
       sumXi = 0.0;
       for (size_t i = 0; i < Ncomp; ++i)
       {
-        sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, right_bracket, cachedP0[i]);   // Zero for avoiding errors
+        sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, right_bracket, cachedP0[i], 295.0);   // Zero for avoiding errors
       }
       ++nr_steps;
       if (nr_steps > 100000)
@@ -625,7 +625,7 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
       sumXi = 0.0;
       for (size_t i = 0; i < Ncomp; ++i)
       {
-        sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, left_bracket, cachedP0[i]);    // Zero for avoiding errors
+        sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, left_bracket, cachedP0[i], 295.0);    // Zero for avoiding errors
       }
       ++nr_steps;
       if (nr_steps > 100000)
@@ -647,7 +647,7 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
     sumXi = 0.0;
     for (size_t i = 0; i < Ncomp; ++i)
     {
-      sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i]); // Zero for avoiding errors
+      sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i], 295.0); // Zero for avoiding errors
     }
 
     if (sumXi > 1.0)
@@ -671,7 +671,7 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
   sumXi = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i]);    // Zero for avoiding errors
+    sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i], 295.0);    // Zero for avoiding errors
   }
 
   // cache the value of psi for subsequent use
@@ -681,12 +681,12 @@ std::pair<size_t, size_t> MixturePrediction::computeIASTNestedLoopBisection(cons
   double inverse_q_total = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    double ip = components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i]);      // Zero for avoiding errors
+    double ip = components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i], 295.0);      // Zero for avoiding errors
     Xi[i] = Yi[i] * P * ip / sumXi;
 
     if (Xi[i] > tiny)
     {
-      inverse_q_total += Xi[i] / components[i].isotherm.value(0, 1.0 / ip);    // Changed for avoid errors  //
+      inverse_q_total += Xi[i] / components[i].isotherm.value(0, 1.0 / ip, 295.0);    // Changed for avoid errors  //
     }
     else
     {
@@ -759,7 +759,7 @@ std::pair<size_t, size_t> MixturePrediction::computeSIASTNestedLoopBisection(siz
   double initial_psi = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    initial_psi += Yi[i] * components[i].isotherm.psiForPressure(site, P);
+    initial_psi += Yi[i] * components[i].isotherm.psiForPressure(site, P, 295.0);
   }
 
   if (initial_psi < tiny)
@@ -782,7 +782,7 @@ std::pair<size_t, size_t> MixturePrediction::computeSIASTNestedLoopBisection(siz
   double sumXi = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, initial_psi, cachedP0[i + Ncomp * site]);
+    sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, initial_psi, cachedP0[i + Ncomp * site], 295.0);
   }
 
   // initialize the bisection algorithm
@@ -798,7 +798,7 @@ std::pair<size_t, size_t> MixturePrediction::computeSIASTNestedLoopBisection(siz
       for (size_t i = 0; i < Ncomp; ++i)
       {
         sumXi +=
-            Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, right_bracket, cachedP0[i + Ncomp * site]);
+            Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, right_bracket, cachedP0[i + Ncomp * site], 295.0);
       }
       ++nr_steps;
       if (nr_steps > 100000)
@@ -822,7 +822,7 @@ std::pair<size_t, size_t> MixturePrediction::computeSIASTNestedLoopBisection(siz
       for (size_t i = 0; i < Ncomp; ++i)
       {
         sumXi +=
-            Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, left_bracket, cachedP0[i + Ncomp * site]);
+            Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, left_bracket, cachedP0[i + Ncomp * site], 295.0);
       }
       ++nr_steps;
       if (nr_steps > 100000)
@@ -844,7 +844,7 @@ std::pair<size_t, size_t> MixturePrediction::computeSIASTNestedLoopBisection(siz
     sumXi = 0.0;
     for (size_t i = 0; i < Ncomp; ++i)
     {
-      sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, psi_value, cachedP0[i + Ncomp * site]);
+      sumXi += Yi[i] * P * components[i].isotherm.inversePressureForPsi(site, psi_value, cachedP0[i + Ncomp * site], 295.0);
     }
 
     if (sumXi > 1.0)
@@ -872,12 +872,12 @@ std::pair<size_t, size_t> MixturePrediction::computeSIASTNestedLoopBisection(siz
   double inverse_q_total = 0.0;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    double ip = components[i].isotherm.inversePressureForPsi(site, psi_value, cachedP0[i + Ncomp * site]);
+    double ip = components[i].isotherm.inversePressureForPsi(site, psi_value, cachedP0[i + Ncomp * site], 295.0);
     Xi[i] = Yi[i] * P * ip;
 
     if (Xi[i] > tiny)
     {
-      inverse_q_total += Xi[i] / components[i].isotherm.value(site, 1.0 / ip);
+      inverse_q_total += Xi[i] / components[i].isotherm.value(site, 1.0 / ip, 295.0);
     }
   }
 
@@ -1096,14 +1096,14 @@ void MixturePrediction::run()
 
   for (size_t i = 0; i < numberOfPressurePoints; ++i)
   {
-    std::pair<double, double> performance = predictMixture(0, Yi, pressures[i], Xi, Ni, &cachedP0[0], &cachedPsi[0]);
+    std::pair<double, double> performance = predictMixture(0, Yi, pressures[i], Xi, Ni, &cachedP0[0], &cachedPsi[0], 295);
     std::cout << "Pressure: " << pressures[i] << " iterations: " << performance.first << std::endl;
 
     for (size_t j = 0; j < Ncomp; j++)
     {
       double p_star = Yi[j] * pressures[i] / Xi[j];
-      streams[j] << pressures[i] << " " << components[j].isotherm.value(0, pressures[i]) << " " << Ni[j] << " " << Yi[j]    // Changed for avoid errors  //
-                 << " " << Xi[j] << " " << components[j].isotherm.psiForPressure(0, p_star) << "\n";         // Changed for avoid errors  //
+      streams[j] << pressures[i] << " " << components[j].isotherm.value(0, pressures[i], 295.0) << " " << Ni[j] << " " << Yi[j]    // Changed for avoid errors  //
+                 << " " << Xi[j] << " " << components[j].isotherm.psiForPressure(0, p_star, 295.0) << "\n";         // Changed for avoid errors  //
     }
   }
 }
@@ -1403,7 +1403,7 @@ void MixturePrediction::printErrorStatus(double psi_value, double sum, double P,
   for (size_t i = 0; i < Ncomp; ++i) std::cout << "cachedP0: " << cachedP0[i] << std::endl;
   for (size_t i = 0; i < Ncomp; ++i)
   {
-    double value = components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i]); // Zero for avoiding errors
+    double value = components[i].isotherm.inversePressureForPsi(0, psi_value, cachedP0[i], 295.0); // Zero for avoiding errors
     std::cout << "inversePressure: " << value << std::endl;
   }
   std::cout << "P: " << P << std::endl;

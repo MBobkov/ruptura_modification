@@ -56,7 +56,7 @@ std::vector<double> MultiSiteIsotherm::getParameters()
 
 // returns the inverse-pressure (1/P) that corresponds to the given reduced_grand_potential psi
 // advantage: for isotherms with zero equilibrium constant the result would be infinite, but the inverse is zero
-double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0) const
+double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0, const double &Tmp) const
 {
   const double tiny = 1.0e-15;
 
@@ -66,12 +66,12 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
   // For a single Langmuir or Langmuir-Freundlich site, the inverse can be handled analytically
   if (numberOfSites == 1 && site == 0)
   {
-    return sites[0].inversePressureForPsi(reduced_grand_potential, cachedP0);
+    return sites[0].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp);
   }
 
   if (numberOfSites1 == 1 && site == 1)
   {
-    return sites[numberOfSites].inversePressureForPsi(reduced_grand_potential, cachedP0);
+    return sites[numberOfSites].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp);
   }
 
   // from here on, work with pressure, and return 1.0 / pressure at the end of the routine
@@ -87,7 +87,7 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
   }
 
   // use bisection algorithm
-  double s = psiForPressure(site, p_start);
+  double s = psiForPressure(site, p_start, Tmp);
 
   size_t nr_steps = 0;
   left_bracket = p_start;
@@ -99,7 +99,7 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
     do
     {
       right_bracket *= 2.0;
-      s = psiForPressure(site, right_bracket);
+      s = psiForPressure(site, right_bracket, Tmp);
 
       ++nr_steps;
       if (nr_steps > 100000)
@@ -119,7 +119,7 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
     do
     {
       left_bracket *= 0.5;
-      s = psiForPressure(site, left_bracket);
+      s = psiForPressure(site, left_bracket, Tmp);
 
       ++nr_steps;
       if (nr_steps > 100000)
@@ -137,7 +137,7 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
   do
   {
     double middle = 0.5 * (left_bracket + right_bracket);
-    s = psiForPressure(site, middle);
+    s = psiForPressure(site, middle, Tmp);
 
     if (s > reduced_grand_potential)
       right_bracket = middle;

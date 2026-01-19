@@ -151,7 +151,22 @@ struct Breakthrough
   double epsilon1;  ///< Void-fraction of the column [-].
   double rho_p;    ///< Particle density [kg/m³].
   double rho_p1;    ///< Particle density [kg/m³].
+  double rho_wall;                              ///< Wall density [kg/m3]
+  double lambda_ax;                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
+  double lambda_ax_1;                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
+  double lambda_w;                              ///< Thermal conductivity of the wall material [W/(m·K)] (optional, if we consider the longitudinal conductivity of the wall)
+  double D_column_out;                              ///< Outer Diameter of the column [m]
+  double D_column_inner;                              ///< Inner Diameter of the column [m]
+  double h_in;                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
+  double h_in_1;                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
+  double h_out;                              ///< Heat transfer coeff outside [W/(m²·K)]
+  double Cps;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
+  double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
+  double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
+  
+  
+  //double h_out_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
   size_t indexLeft{0};
   size_t indexRight{0};
   size_t indexMid{0};
@@ -204,16 +219,20 @@ struct Breakthrough
   std::vector<double> Dqdtnew;    ///< Updated derivative of Q with respect to time.
   std::vector<double> DTdt;       ///< Derivative of T with respect to time.
   std::vector<double> DTdtnew;       ///< Updated derivative of T with respect to time.
+  std::vector<double> DTdtWall;       ///< Derivative of T wall with respect to time.
+  std::vector<double> DTdtWallnew;       ///< Updated derivative of T wall  with respect to time.
   std::vector<double> cachedP0;   ///< Cached hypothetical pressure.
   std::vector<double> cachedP01;   ///< Cached hypothetical pressure.
   std::vector<double> cachedPsi;  ///< Cached reduced grand potential over the column.
   std::vector<double> cachedPsi1;  ///< Cached reduced grand potential over the column.
   std::vector<double> Tgs;  ///< Gas tempreture
-  std::vector<double> Tgsnew;  ///< Gas tempreture
+  std::vector<double> Tgsnew;  ///< Updated Gas tempreture
   std::vector<double> Tw;  ///< Wall tempreture  
-  std::vector<double> Twnew;  ///< Wall tempreture
+  std::vector<double> Twnew;  ///< Updated Wall tempreture
   std::vector<double> rho_gas;  ///< Gas density
   std::vector<double> Mol_mix;  ///< Average molar mass
+  std::vector<double> Cpg_mix;  ///< Average molar mass
+  std::vector<double> Tconst;  ///< Average molar mass
 
   enum class IntegrationScheme
   {
@@ -233,9 +252,9 @@ struct Breakthrough
    * \param v Interstitial gas velocities.
    * \param p Partial pressures.
    */
-  void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt,
+  void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
                                            const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmp);
+                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);
 
   /**
    * \brief Computes a single simulation step.
@@ -259,6 +278,24 @@ struct Breakthrough
    * Updates the velocities based on current pressures and adsorption amounts.
    */
   void computeVelocity();
+  /**
+   * \brief Computes the interstitial gas velocities along the column with T influence.
+   *
+   * Updates the velocities based on current pressures and adsorption amounts with T influence.
+   */
+  void computeVelocityTempreture();
+   /**
+   * \brief Computes the interstitial gas velocities along the column with T influence.
+   *
+   * Updates the velocities (light version) based on current pressures and adsorption amounts with T influence.
+   */
+  void computeVelocityTempretureLight();
+  /**
+   * \brief Computes Molar Mass mixture along the column.
+   *
+   * Calculates the molar mass mixture.
+   */
+  void computeCpgMix(std::vector<double> &Pi);
 
   /**
    * \brief Creates a script to generate a movie for the interstitial gas velocity.
@@ -299,4 +336,6 @@ struct Breakthrough
    * \brief Creates a script to generate a movie for the normalized partial pressures.
    */
   void createMovieScriptColumnPnormalized();
+
 };
+

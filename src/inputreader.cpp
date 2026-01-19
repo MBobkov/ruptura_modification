@@ -268,11 +268,58 @@ InputReader::InputReader(const std::string fileName) : components()
         this->particleDensity = value;
         continue;
       }
-      
       if (caseInSensStringCompare(keyword, "ParticleDensity_1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->particleDensity1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Lambda_ax"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->lambda_ax = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Lambda_ax_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->lambda_ax_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Lambda_w"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->lambda_w = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "D_out"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->D_column_out = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "D_inner"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->D_column_inner = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "h_in"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->h_in = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "h_in_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->h_in_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "h_out"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->h_out = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "TotalPressure"))
@@ -396,6 +443,42 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->boundary_coord = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Ambient_Temperature"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->Tamb = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Cps"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->Cps = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Cps_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->Cps_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Cpw"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->Cpw = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "rho_w"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->rho_w = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Cpg"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].Cpg = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "NumberOfGridPoints"))
@@ -592,16 +675,25 @@ InputReader::InputReader(const std::string fileName) : components()
         continue;
       }
       if (caseInSensStringCompare(keyword, "Langmuir-Freundlich"))
-      {
+      { 
         std::vector<double> values = parseListOfSystemValues<double>(arguments, keyword, lineNumber);
         if (values.size() < 3)
         {
-          throw std::runtime_error("Error: Langmuir-Freundlich requires three parameters");
+          throw std::runtime_error("Error: Langmuir-Freundlich requires at least three parameters");
         }
-        values.resize(3);
-        Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir_Freundlich, values, 3);
-        components[numberOfComponents - 1].isotherm.add(isotherm);
-        continue;
+        if (values.size() == 3) {
+          values.resize(3);
+          Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir_Freundlich, values, 3);
+          components[numberOfComponents - 1].isotherm.add(isotherm);
+          continue;
+        }
+
+        if (values.size() == 6) {
+          values.resize(6);
+          Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir_Freundlich, values, 6);
+          components[numberOfComponents - 1].isotherm.add(isotherm);
+          continue;
+        }
       }
       if (caseInSensStringCompare(keyword, "Redlich-Peterson"))
       {

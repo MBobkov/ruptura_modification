@@ -90,6 +90,11 @@ struct Isotherm
    */
   void print() const;
 
+    /**
+   * \brief Update parameters
+   */
+  void UpdateParameters();
+
   /**
    * \brief Returns a string representation of the isotherm.
    *
@@ -105,7 +110,7 @@ struct Isotherm
    * \param pressure The pressure at which to evaluate the isotherm.
    * \return The adsorption amount at the given pressure.
    */
-  inline double value(double pressure) const
+  inline double value(double pressure, double T) const
   {
     switch (type)
     {
@@ -138,8 +143,16 @@ struct Isotherm
       }
       case Isotherm::Type::Langmuir_Freundlich:
       {
-        double temp = parameters[1] * std::pow(pressure, parameters[2]);
-        return parameters[0] * temp / (1.0 + temp);
+        if (parameters.size() == 3) {
+          double temp = parameters[1] * std::pow(pressure, parameters[2]);
+          return parameters[0] * temp / (1.0 + temp); 
+        }
+
+        else if (parameters.size() == 6) {
+          double temp = parameters[1] * std::exp(parameters[4] / T) * std::pow(pressure, parameters[2] + parameters[5] / T);
+          return (parameters[0] + parameters[3] * T) * temp / (1.0 + temp); 
+        }
+        return 0;
       }
       case Isotherm::Type::Redlich_Peterson:
       {
@@ -193,7 +206,7 @@ struct Isotherm
    * \param pressure The pressure at which to evaluate the reduced grand potential.
    * \return The reduced grand potential psi at the given pressure.
    */
-  inline double psiForPressure(double pressure) const
+  inline double psiForPressure(double pressure, double T) const
   {
     switch (type)
     {
@@ -226,7 +239,13 @@ struct Isotherm
       }
       case Isotherm::Type::Langmuir_Freundlich:
       {
-        return (parameters[0] / parameters[2]) * std::log(1.0 + parameters[1] * std::pow(pressure, parameters[2]));
+        if (parameters.size() == 3) {
+          return (parameters[0] / parameters[2]) * std::log(1.0 + parameters[1] * std::pow(pressure, parameters[2]));
+        }
+        else if (parameters.size() == 6) {
+          return (parameters[0] + parameters[3] * T) / (parameters[2] + parameters[5] / T) * std::log(1.0 + parameters[1] * std::exp(parameters[4] / T) *std::pow(pressure, parameters[2])); // changed for T
+        }
+        return 0;
       }
       case Isotherm::Type::Redlich_Peterson:
       {
@@ -305,7 +324,7 @@ struct Isotherm
         std::vector<double> R1(max_steps), R2(max_steps);                       // buffers
         double *Rp = &R1[0], *Rc = &R2[0];                                      // Rp is previous row, Rc is current row
         double h = pressure - start;                                            // step size
-        Rp[0] = (value(start) / start + value(pressure) / pressure) * h * 0.5;  // first trapezoidal step
+        Rp[0] = (value(start, T) / start + value(pressure, T) / pressure) * h * 0.5;  // first trapezoidal step
 
         for (size_t i = 1; i < max_steps; ++i)
         {
@@ -314,7 +333,7 @@ struct Isotherm
           size_t ep = size_t{1} << (i - 1);  // 2^(n-1)
           for (size_t j = 1; j <= ep; ++j)
           {
-            c += value(start + static_cast<double>(2 * j - 1) * h) / (start + static_cast<double>(2 * j - 1) * h);
+            c += value(start + static_cast<double>(2 * j - 1) * h, T) / (start + static_cast<double>(2 * j - 1) * h);
           }
           Rc[0] = h * c + 0.5 * Rp[0];  // R(i,0)
 
@@ -350,7 +369,7 @@ struct Isotherm
    * \param cachedP0 A reference to a cached pressure value used to initialize the calculation.
    * \return The inverse of the pressure corresponding to the given psi.
    */
-  inline double inversePressureForPsi(double reduced_grand_potential, double &cachedP0) const
+  inline double inversePressureForPsi(double reduced_grand_potential, double &cachedP0, double T) const
   {
     switch (type)
     {
@@ -379,8 +398,16 @@ struct Isotherm
       }
       case Isotherm::Type::Langmuir_Freundlich:
       {
-        double denominator = std::exp(reduced_grand_potential * parameters[2] / parameters[0]) - 1.0;
-        return std::pow(parameters[1] / denominator, 1.0 / parameters[2]);
+        if (parameters.size() == 3) {
+          double denominator = std::exp(reduced_grand_potential * parameters[2] / parameters[0]) - 1.0;
+          return std::pow(parameters[1] / denominator, 1.0 / parameters[2]);
+        }
+
+        else if (parameters.size() == 6) {
+          double denominator = std::exp(reduced_grand_potential * (parameters[2] + parameters[5] / T) / (parameters[0] + parameters[3] * T)) - 1.0;
+          return std::pow(parameters[1] * std::exp(parameters[4] / T) / denominator, 1.0 / (parameters[2] + parameters[5] / T));
+        }
+        return 0;
       }
       default:
       {
@@ -399,7 +426,7 @@ struct Isotherm
         }
 
         // use bisection algorithm
-        double s = psiForPressure(p_start);
+        double s = psiForPressure(p_start, T);
 
         size_t nr_steps = 0;
         double left_bracket = p_start;
@@ -411,7 +438,7 @@ struct Isotherm
           do
           {
             right_bracket *= 2.0;
-            s = psiForPressure(right_bracket);
+            s = psiForPressure(right_bracket, T); //
 
             ++nr_steps;
             if (nr_steps > 100000)
@@ -432,7 +459,7 @@ struct Isotherm
           do
           {
             left_bracket *= 0.5;
-            s = psiForPressure(left_bracket);
+            s = psiForPressure(left_bracket, T); //
 
             ++nr_steps;
             if (nr_steps > 100000)
@@ -451,7 +478,7 @@ struct Isotherm
         do
         {
           double middle = 0.5 * (left_bracket + right_bracket);
-          s = psiForPressure(middle);
+          s = psiForPressure(middle, T);  //
 
           if (s > reduced_grand_potential)
             right_bracket = middle;

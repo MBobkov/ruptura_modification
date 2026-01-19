@@ -130,20 +130,20 @@ struct MultiSiteIsotherm
    * \param pressure The pressure at which to evaluate the adsorption.
    * \return The total adsorption value.
    */
-  inline double value(size_t site, double pressure) const
+  inline double value(size_t site, double pressure, double Tmp) const
   {
     double sum = 0.0;
     if (site == 0) {
       for (size_t i = 0; i < numberOfSites; ++i)                                // value function changed for two layers model
     {
-      sum += sites[i].value(pressure);
+      sum += sites[i].value(pressure, Tmp);
     }
   }
 
     if (site == 1) {
       for (size_t i = numberOfSites; i < numberOfSites1 + numberOfSites; ++i)     
     {
-      sum += sites[i].value(pressure);
+      sum += sites[i].value(pressure, Tmp);
     }
 
     }
@@ -178,21 +178,21 @@ struct MultiSiteIsotherm
    * \param pressure The pressure at which to compute the reduced grand potential.
    * \return The total reduced grand potential.
    */
-  inline double psiForPressure(size_t site, double pressure) const
+  inline double psiForPressure(size_t site, double pressure, double Tmp) const
   {
     double sum = 0.0;
 
     if (site == 0) {
       for (size_t i = 0; i < numberOfSites; ++i)                                // value function changed for two layers model
     {
-      sum += sites[i].psiForPressure(pressure);                                 // sites = [Isotherm1Layer1, Isotherm2Layer1, Isotherm1Layer2, Isotherm2Layer2]
+      sum += sites[i].psiForPressure(pressure, Tmp);                                 // sites = [Isotherm1Layer1, Isotherm2Layer1, Isotherm1Layer2, Isotherm2Layer2]
     }
   }
 
     if (site == 1) {
       for (size_t i = numberOfSites; i < numberOfSites1 + numberOfSites; ++i)     
     {
-      sum += sites[i].psiForPressure(pressure);
+      sum += sites[i].psiForPressure(pressure, Tmp);
     }
 
     }
@@ -228,7 +228,7 @@ struct MultiSiteIsotherm
    * \param cachedP0 A reference to a cached pressure value for starting point optimization.
    * \return The inverse of the pressure corresponding to the reduced grand potential.
    */
-  double inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0) const;
+  double inversePressureForPsi(size_t site, double reduced_grand_potential, double &cachedP0, const double &Tmp) const;
 
   /**
    * \brief Computes the inverse pressure for a specific site corresponding to a given reduced grand potential.

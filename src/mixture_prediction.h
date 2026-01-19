@@ -187,7 +187,7 @@ class MixturePrediction
    * \return A pair containing the number of IAST steps and a status code.
    */
   std::pair<size_t, size_t> predictMixture(size_t site, const std::vector<double> &Yi, const double &P, std::vector<double> &Xi,
-                                           std::vector<double> &Ni, double *cachedP0, double *cachedPsi);
+                                           std::vector<double> &Ni, double *cachedP0, double *cachedPsi, const double &T);
 
  private:
   std::string displayName;                  ///< The display name for the simulation.
@@ -258,7 +258,7 @@ class MixturePrediction
    * \return A pair containing the number of IAST steps and a status code.
    */
   std::pair<size_t, size_t> computeFastIAST(size_t site, const std::vector<double> &Yi, const double &P, std::vector<double> &Xi,
-                                            std::vector<double> &Ni, double *cachedP0, double *cachedPsi);
+                                            std::vector<double> &Ni, double *cachedP0, double *cachedPsi, const double &Tmp);
 
   /**
    * \brief Computes mixture prediction using Fast SIAST method.
