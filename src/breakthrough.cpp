@@ -1359,7 +1359,7 @@ void Breakthrough::computeVelocityTempretureLight()
           sum - prefactorLeft[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
           components[j].D * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
-    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i] * 0;
+    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
     Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
   }
