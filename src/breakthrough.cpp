@@ -1188,6 +1188,19 @@ void Breakthrough::computeVelocityTempretureLight()
   Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid] + dx * (DTgdtnew[Ngrid] / Tgnew[Ngrid]);
 }
 
+void Breakthrough::computeCvgMix(std::vector<double> &Pi) {
+  //std::fill(Mol_mix.begin(), Mol_mix.end(), 0.0);
+  std::fill(Cvg_mix.begin(), Cvg_mix.end(), 0.0);
+  for (size_t i = 0; i < Ngrid + 1; ++i)
+  {
+    for (size_t j = 0; j < Ncomp; ++j)
+    { 
+       //Mol_mix[i] += components[j].MolMass * P[i * Ncomp + j] / Pt[i]; //  Mol mix calculating
+       Cvg_mix[i] += components[j].Cvg * Pi[i * Ncomp + j] / Pt[i]; 
+    }
+  }  
+}
+
 void Breakthrough::print() const { std::cout << repr(); }
 
 std::string Breakthrough::repr() const
