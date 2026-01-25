@@ -1510,7 +1510,7 @@ void Breakthrough::createMovieScriptColumnV()
 void Breakthrough::createMovieScriptColumnTg()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  std::ofstream makeMovieStream("make_movie_T.bat");
+  std::ofstream makeMovieStream("make_movie_Tg.bat");
 #else
   std::ofstream makeMovieStream("make_movie_T");
   makeMovieStream << "#!/bin/sh\n";
@@ -1561,7 +1561,7 @@ void Breakthrough::createMovieScriptColumnTg()
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.95*max:1.05*max]\n";
+  stream << "set yrange[0.5*max:1.05*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
@@ -1624,7 +1624,7 @@ void Breakthrough::createMovieScriptColumnTs()
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.95*max:1.05*max]\n";
+  stream << "set yrange[0.5*max:1.05*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
@@ -1688,7 +1688,7 @@ void Breakthrough::createMovieScriptColumnTw()
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.95*max:1.03*max]\n";
+  stream << "set yrange[0.5*max:1.03*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
