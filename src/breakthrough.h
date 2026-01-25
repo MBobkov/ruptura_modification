@@ -163,6 +163,12 @@ struct Breakthrough
   double Cps;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
+  double ks;
+  double ks_1;
+  double kg;
+  double kg_1;
+  double HTC;
+  double ap;
   double boundaryCoordinate;  ///< boundary x coord
   
   
@@ -323,7 +329,12 @@ struct Breakthrough
     /**
    * \brief Creates a script to generate a movie for the gas and solid Temperature.
    */
-  void createMovieScriptColumnT();
+  void createMovieScriptColumnTg();
+
+    /**
+   * \brief Creates a script to generate a movie for the gas and solid Temperature.
+   */
+  void createMovieScriptColumnTs();
 
       /**
    * \brief Creates a script to generate a movie for the wall Temperature.

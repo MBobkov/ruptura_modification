@@ -6,8 +6,8 @@
 #include "isotherm.h"
 
 Component::Component(size_t _id, std::string _name, std::vector<Isotherm> _isotherms, double _Yi0, double _MolMass, double _Kl, double _Kl1,
-                     double _D, double _D1, double _dH, double _dH1, double _Cpg, bool _isCarrierGas)
-    : id(_id), name(_name), Yi0(_Yi0), MolMass(_MolMass), Kl(_Kl), Kl1(_Kl1), D(_D), D1(_D1), dH(_dH), dH1(_dH1), Cvg(_Cpg), isCarrierGas(_isCarrierGas) // k1, d1, dH, dH1 added
+                     double _D, double _D1, double _dH, double _dH1, double _Cvg, bool _isCarrierGas)
+    : id(_id), name(_name), Yi0(_Yi0), MolMass(_MolMass), Kl(_Kl), Kl1(_Kl1), D(_D), D1(_D1), dH(_dH), dH1(_dH1), Cvg(_Cvg), isCarrierGas(_isCarrierGas) // k1, d1, dH, dH1 added
 {
   isotherm.numberOfSites = _isotherms.size();
   for (Isotherm it : _isotherms)
@@ -36,7 +36,7 @@ std::string Component::repr() const
     s += "    2nd diffusion coefficient:     " + std::to_string(D1) + " [m^2/s]\n";
     s += "    Adsorption heat [J/mol]:     " + std::to_string(dH) + " [J/mol]\n";
     s += "    2nd Adsorption heat [J/mol]:     " + std::to_string(dH1) + " [J/mol]\n";
-    s += "    Cpg:     " + std::to_string(Cpg) + " [J/(mol*K)]\n";
+    s += "    Cvg:     " + std::to_string(Cvg) + " [J/(mol*K)]\n";
     s += isotherm.repr();
   }
   return s;
