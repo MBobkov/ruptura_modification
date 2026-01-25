@@ -1014,9 +1014,9 @@ void Breakthrough::computeFirstDerivatives2(
         double Q_wall = - 4.0 * current_h_in * (Tmpg[i] - Tw[i]) / D_column_inner;
 
         // Используем current_kg для газа
-        double NumeratorGas = current_kg * (Tmpg[i + 1] - 2 * Tmpg[i] + Tmpg[i - 1]) * idx2 
+        double NumeratorGas = current_kg * current_epsilon * (Tmpg[i + 1] - 2 * Tmpg[i] + Tmpg[i - 1]) * idx2 
                             - current_epsilon * (Pt[i] / (R * Tmpg[i])) * Cvg_mix[i] * v[i] * (Tmpg[i] - Tmpg[i - 1]) * idx 
-                            + current_epsilon * Q_exchange
+                            + Q_exchange
                             + Q_wall
                             - current_epsilon * WorkExpansion; 
 
@@ -1028,7 +1028,7 @@ void Breakthrough::computeFirstDerivatives2(
         // SOLID PHASE ENERGY BALANCE
         // =========================================================
         
-        double HeatSource = (1.0 - current_epsilon) * current_rhop * sumH;
+        double HeatSource = (1 - current_epsilon) * current_rhop * sumH;
         
         // Используем current_ks для твердого тела
         double ConductionSolid = current_ks * (Tmps[i + 1] - 2 * Tmps[i] + Tmps[i - 1]) * idx2;
@@ -1072,7 +1072,7 @@ void Breakthrough::computeFirstDerivatives2(
         }
 
         double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx; 
-        double WorkExpansion = Pt[Ngrid] * dVdz; 
+        double WorkExpansion = Pt[Ngrid] * dVdz * 0; 
 
         double current_Hs = HTC; 
         double current_ap = ap;
@@ -1081,9 +1081,9 @@ void Breakthrough::computeFirstDerivatives2(
 
         // GAS
         // Используем kg_1 и аппроксимацию второй производной на границе (backward difference)
-        double NumeratorGas = kg_1 * (Tmpg[Ngrid - 1] - Tmpg[Ngrid]) * idx2 
+        double NumeratorGas = kg_1 * epsilon1 * (Tmpg[Ngrid - 1] - Tmpg[Ngrid]) * idx2 
                             - (Pt[Ngrid] / (R * Tmpg[Ngrid])) * Cvg_mix[Ngrid] * v[Ngrid] * (Tmpg[Ngrid] - Tmpg[Ngrid - 1]) * idx 
-                            + epsilon1 * Q_exchange
+                            + Q_exchange
                             + Q_wall
                             - epsilon1 * WorkExpansion;
 
