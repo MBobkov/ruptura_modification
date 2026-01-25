@@ -81,6 +81,25 @@ std::string Isotherm::repr() const
       }
       break;
     }
+    case Isotherm::Type::Langmuir_Freundlich_T_exp:
+    {
+      if (parameters.size() == 3) {
+        s += "    Langmuir-Freundlich isotherm\n";
+        s += "        q_sat: " + std::to_string(parameters[0]) + "\n";
+        s += "        b:     " + std::to_string(parameters[1]) + "\n";
+        s += "        nu:    " + std::to_string(parameters[2]) + "\n";
+      }
+
+      else if (parameters.size() == 5) {
+        s += "    Langmuir-Freundlich isotherm with Tempreture dependence\n";
+        s += "        q_sat: " + std::to_string(parameters[0]) + "\n";
+        s += "        b:     " + std::to_string(parameters[1]) + "\n";
+        s += "        nu:    " + std::to_string(parameters[2]) + "\n";
+        s += "        k1: " + std::to_string(parameters[3]) + "\n";
+        s += "        k2: " + std::to_string(parameters[4]) + "\n";
+      }
+      break;
+    }
     case Isotherm::Type::Redlich_Peterson:
     {
       s += "    Redlich-Peterson isotherm\n";

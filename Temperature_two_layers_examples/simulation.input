@@ -1,0 +1,78 @@
+SimulationType           Breakthrough  // [-] Type of simulation (Breakthrough curve)
+
+DisplayName              Zeolite-5A-Isothermal-Test // [-] Name of the simulation run
+Temperature              298           // [K] Temperature of the inlet gas
+Ambient_Temperature      293           // [K] Temperature of the surrounding environment
+ColumnLength             0.365         // [m] Total length of the adsorption column
+BoundaryCoord            0.183         // [m] Coordinate where Layer 0 ends and Layer 1 begins (Interface position)
+
+D_inner                  0.022         // [m] Inner diameter of the column
+D_out                    0.026         // [m] Outer diameter of the column (including wall thickness)
+
+ColumnVoidFraction       0.43          // [-] Interstitial void fraction (porosity) of the bed in Layer 0
+ColumnVoidFraction_1     0.43          // [-] Interstitial void fraction (porosity) of the bed in Layer 1
+ParticleDensity          850.0         // [kg/m^3] Density of the solid adsorbent particles in Layer 0
+ParticleDensity_1        850.0         // [kg/m^3] Density of the solid adsorbent particles in Layer 1
+
+// --- THERMAL PROPERTIES ---
+Cps                      920.0         // [J/(kg*K)] Specific heat capacity of the solid adsorbent in Layer 0
+Cps_1                    920.0         // [J/(kg*K)] Specific heat capacity of the solid adsorbent in Layer 1
+Lambda_ax                0.35          // [W/(m*K)] Effective axial thermal conductivity of the bed in Layer 0
+Lambda_ax_1              0.35          // [W/(m*K)] Effective axial thermal conductivity of the bed in Layer 1
+Cpw                      500.0         // [J/(kg*K)] Specific heat capacity of the column wall material
+rho_w                    7900.0        // [kg/m^3] Density of the column wall material (e.g., steel)
+Lambda_w                 16.0          // [W/(m*K)] Thermal conductivity of the column wall
+
+// --- HEAT TRANSFER coefficients ---
+h_in                     1000.0        // [W/(m^2*K)] Internal heat transfer coefficient (Gas-to-Wall or Bed-to-Wall)
+h_in_1                   1000.0        // [W/(m^2*K)] Internal heat transfer coefficient for Layer 1
+h_out                    1000.0        // [W/(m^2*K)] External heat transfer coefficient (Wall-to-Ambient)
+
+TotalPressure            1.00e6        // [Pa] Total absolute pressure at the column inlet
+PressureGradient         -5000         // [Pa/m] Linear pressure drop gradient (dP/dz)
+ColumnEntranceVelocity   1.68E-02      // [m/s] Interstitial gas velocity at the inlet
+
+NumberOfTimeSteps       auto           // [-] Number of time steps (or 'auto' for automatic duration)
+PrintEvery              10000          // [-] Interval of steps to print status to console
+WriteEvery              100            // [-] Interval of steps to write data to output files
+TimeStep                0.05           // [s] Size of the time step (dt)
+NumberOfGridPoints      150            // [-] Number of spatial grid points (discretization nodes)
+
+// ==========================================
+// COMPONENT 0: H2 (Carrier)
+// ==========================================
+Component 0 MoleculeName               H2    // [-] Chemical formula/Name
+            GasPhaseMolFraction        0.7   // [-] Mole fraction in the feed gas (y_in)
+            CarrierGas                 yes   // [-] Flag indicating if this is the inert carrier gas
+            Cpg                        28.8  // [J/(mol*K)] Molar heat capacity of the gas component
+            AdsorptionHeat             0.0   // [J/mol] Isosteric heat of adsorption (Delta H)
+            AdsorptionHeat_1           0.0   // [J/mol] Isosteric heat of adsorption for Layer 1
+            Layer 0 
+            NumberOfIsothermSites      0     // [-] Number of adsorption sites (0 for inert)
+            Layer 1
+            NumberOfIsothermSites      0     // [-] Number of adsorption sites (0 for inert)
+
+// ==========================================
+// COMPONENT 1: CH4
+// ==========================================
+Component 1 MoleculeName               CH4   // [-] Chemical formula/Name
+            GasPhaseMolFraction        0.3   // [-] Mole fraction in the feed gas (y_in)
+            Cpg                        35.7  // [J/(mol*K)] Molar heat capacity of the gas component
+            
+            MassTransferCoefficient    0.195   // [1/s] Linear Driving Force (LDF) mass transfer coefficient (Kl)
+            AxialDispersionCoefficient 1E-06   // [m^2/s] Axial dispersion coefficient (D_ax)
+            
+            AdsorptionHeat             19000   // [J/mol] Isosteric heat of adsorption (Delta H)
+            AdsorptionHeat_1           19000   // [J/mol] Isosteric heat of adsorption for Layer 1
+            
+            MassTransferCoefficient_1  0.195   // [1/s] LDF mass transfer coefficient for Layer 1
+            AxialDispersionCoefficient_1 1E-06 // [m^2/s] Axial dispersion coefficient for Layer 1
+            
+            Layer 0                              
+            NumberOfIsothermSites      1       // [-] Number of distinct adsorption sites/mechanisms
+            // Langmuir-Freundlich parameters: q_sat [mol/kg], b [1/Pa], nu [-], T-dep parameters...
+            Langmuir-Freundlich        7.11232  2.05261e-05  0.782682 0 0 0
+            Layer 1                               
+            NumberOfIsothermSites      2       // [-] Number of distinct adsorption sites/mechanisms
+            Langmuir-Freundlich        7.11232  2.05261e-05  0.782682 0 0 0     
+            Langmuir-Freundlich        5.11232  1.05261e-05  0.482682 0 0 0

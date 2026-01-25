@@ -1,0 +1,2 @@
+ruptura.exe
+pause

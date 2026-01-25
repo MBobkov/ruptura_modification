@@ -56,7 +56,8 @@ struct Isotherm
     OBrien_Myers = 10,        ///< O'Brien and Myers isotherm model
     Quadratic = 11,           ///< Quadratic isotherm model
     Temkin = 12,              ///< Temkin isotherm model
-    BingelWalton = 13         ///< Bingel and Walton isotherm model
+    BingelWalton = 13,         ///< Bingel and Walton isotherm model
+    Langmuir_Freundlich_T_exp = 14 ///< Langmuir-Freundlich isotherm model with T dependece
   };
 
   /**
@@ -154,6 +155,20 @@ struct Isotherm
         }
         return 0;
       }
+      case Isotherm::Type::Langmuir_Freundlich_T_exp:
+      {
+        if (parameters.size() == 3) {
+          double temp = parameters[1] * std::pow(pressure, parameters[2]);
+          return parameters[0] * temp / (1.0 + temp); 
+        }
+
+        else if (parameters.size() == 5) {
+          double temp1 = parameters[1] * std::pow(pressure, parameters[2]) * std::exp(parameters[3] / T);
+          double temp2 = parameters[1] * std::pow(pressure, parameters[2]) * std::exp(parameters[4] / T);
+          return parameters[0] * temp1 / (1.0 + temp2);     // ASPEN LF 
+        }
+        return 0;
+      }
       case Isotherm::Type::Redlich_Peterson:
       {
         return parameters[0] * pressure / (1.0 + parameters[1] * std::pow(pressure, parameters[2]));
@@ -244,6 +259,17 @@ struct Isotherm
         }
         else if (parameters.size() == 6) {
           return (parameters[0] + parameters[3] * T) / (parameters[2] + parameters[5] / T) * std::log(1.0 + parameters[1] * std::exp(parameters[4] / T) *std::pow(pressure, parameters[2])); // changed for T
+        }
+        return 0;
+      }
+      case Isotherm::Type::Langmuir_Freundlich_T_exp:
+      {
+        if (parameters.size() == 3) {
+          return (parameters[0] / parameters[2]) * std::log(1.0 + parameters[1] * std::pow(pressure, parameters[2]));
+        }
+
+        else if (parameters.size() == 5) {
+          return (parameters[0] / parameters[2]) * std::exp((parameters[3] - parameters[4]) / T) * std::log(1.0 + parameters[1] * std::exp(parameters[4] / T) * std::pow(pressure, parameters[2]));
         }
         return 0;
       }
@@ -406,6 +432,19 @@ struct Isotherm
         else if (parameters.size() == 6) {
           double denominator = std::exp(reduced_grand_potential * (parameters[2] + parameters[5] / T) / (parameters[0] + parameters[3] * T)) - 1.0;
           return std::pow(parameters[1] * std::exp(parameters[4] / T) / denominator, 1.0 / (parameters[2] + parameters[5] / T));
+        }
+        return 0;
+      }
+      case Isotherm::Type::Langmuir_Freundlich_T_exp:
+      {
+        if (parameters.size() == 3) {
+          double denominator = std::exp(reduced_grand_potential * (parameters[2]) / (parameters[0])) - 1.0;
+          return std::pow(parameters[1] / denominator, 1.0 / (parameters[2]));
+        }
+
+        else if (parameters.size() == 5) {
+           double denominator = std::exp(reduced_grand_potential * parameters[2] / (parameters[0] * std::exp((parameters[3] - parameters[4]) / T))) - 1.0;
+          return std::pow(parameters[1] * std::exp(parameters[4] / T) / denominator, 1.0 / parameters[2]);
         }
         return 0;
       }

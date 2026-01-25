@@ -695,6 +695,28 @@ InputReader::InputReader(const std::string fileName) : components()
           continue;
         }
       }
+      if (caseInSensStringCompare(keyword, "Langmuir-Freundlich-T"))
+      { 
+        std::vector<double> values = parseListOfSystemValues<double>(arguments, keyword, lineNumber);
+        if (values.size() < 3)
+        {
+          throw std::runtime_error("Error: Langmuir-Freundlich requires at least three parameters");
+        }
+        if (values.size() == 3) {
+          values.resize(3);
+          Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir_Freundlich_T_exp, values, 3);
+          components[numberOfComponents - 1].isotherm.add(isotherm);
+          continue;
+        }
+
+        if (values.size() == 5) {
+          values.resize(5);
+          Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir_Freundlich_T_exp, values, 5);
+          components[numberOfComponents - 1].isotherm.add(isotherm);
+          continue;
+        }
+      }
+
       if (caseInSensStringCompare(keyword, "Redlich-Peterson"))
       {
         std::vector<double> values = parseListOfSystemValues<double>(arguments, keyword, lineNumber);
@@ -843,6 +865,11 @@ InputReader::InputReader(const std::string fileName) : components()
         std::max_element(components.begin(), components.end(), [](Component& lhs, Component& rhs)
                          { return lhs.isotherm.numberOfSites < rhs.isotherm.numberOfSites; });
     maxIsothermTerms = maxIsothermTermsIterator->isotherm.numberOfSites;
+
+    std::vector<Component>::iterator maxIsothermTermsIterator1 =
+        std::max_element(components.begin(), components.end(), [](Component& lhs, Component& rhs)
+                         { return lhs.isotherm.numberOfSites1 < rhs.isotherm.numberOfSites1; });
+    maxIsothermTerms1 = maxIsothermTermsIterator1->isotherm.numberOfSites1;
   }
 
   if (simulationType == SimulationType::Breakthrough)

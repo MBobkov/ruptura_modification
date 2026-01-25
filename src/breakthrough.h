@@ -184,6 +184,7 @@ struct Breakthrough
   MixturePrediction mixture;                        ///< MixturePrediction object for mixture predictions.
   MixturePrediction mixture1;                        ///< MixturePrediction object for mixture predictions.
   size_t maxIsothermTerms;                          ///< Maximum number of isotherm terms.
+  size_t maxIsothermTerms1;                          ///< Maximum number of isotherm terms.
   std::pair<size_t, size_t> iastPerformance{0, 0};  ///< Performance metrics for IAST calculations.
   std::pair<size_t, size_t> iastPerformance1{0, 0};  ///< Performance metrics for IAST calculations.
 
@@ -232,7 +233,8 @@ struct Breakthrough
   std::vector<double> rho_gas;  ///< Gas density
   std::vector<double> Mol_mix;  ///< Average molar mass
   std::vector<double> Cpg_mix;  ///< Average molar mass
-  std::vector<double> Tconst;  ///< Average molar mass
+  std::vector<double> Tinit;  ///< Tinit
+  std::vector<double> DPtdt;
 
   enum class IntegrationScheme
   {
@@ -255,6 +257,10 @@ struct Breakthrough
   void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
                                            const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
                                            const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);
+
+  void computeFirstDerivatives2(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
+                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);                                         
 
   /**
    * \brief Computes a single simulation step.
@@ -301,6 +307,16 @@ struct Breakthrough
    * \brief Creates a script to generate a movie for the interstitial gas velocity.
    */
   void createMovieScriptColumnV();
+
+    /**
+   * \brief Creates a script to generate a movie for the gas and solid Temperature.
+   */
+  void createMovieScriptColumnT();
+
+      /**
+   * \brief Creates a script to generate a movie for the wall Temperature.
+   */
+  void createMovieScriptColumnTw();
 
   /**
    * \brief Creates a script to generate a movie for the total pressure along the column.

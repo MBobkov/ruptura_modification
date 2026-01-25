@@ -71,7 +71,7 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
 
   if (numberOfSites1 == 1 && site == 1)
   {
-    return sites[numberOfSites].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp);
+    return sites[numberOfSites1].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
   }
 
   // from here on, work with pressure, and return 1.0 / pressure at the end of the routine
