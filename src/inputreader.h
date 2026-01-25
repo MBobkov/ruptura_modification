@@ -63,6 +63,12 @@ struct InputReader
   double h_out{1000.0};                              ///< Heat transfer coeff outside [W/(m²·K)]
   double D_column_inner{1000.0};                              ///< Diameter of inner column [m]
   double D_column_out{1000.0};                              ///< Outer Diameter of the column [m]
+  double ks{1};
+  double ks_1{1};
+  double kg{1};
+  double kg_1{1};
+  double HTC{1};
+  double ap{1};
   double Tamb{293};
   double particleDensity{1000.0};                               ///< The density of the particles in kg/m^3.
   double particleDensity1{1000.0};                              ///< The density of the 2nd particles in kg/m^3.    

@@ -475,10 +475,46 @@ InputReader::InputReader(const std::string fileName) : components()
         this->rho_w = value;
         continue;
       }
-      if (caseInSensStringCompare(keyword, "Cpg"))
+      if (caseInSensStringCompare(keyword, "ks"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].Cpg = value;
+        this->ks = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "ks_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->ks_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "kg"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->kg = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "kg_1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->kg_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "HTC"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->HTC = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "ap"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->ap = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Cvg"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].Cvg = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "NumberOfGridPoints"))

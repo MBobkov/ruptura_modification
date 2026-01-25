@@ -218,21 +218,25 @@ struct Breakthrough
   std::vector<double> Dpdtnew;    ///< Updated derivative of P with respect to time.
   std::vector<double> Dqdt;       ///< Derivative of Q with respect to time.
   std::vector<double> Dqdtnew;    ///< Updated derivative of Q with respect to time.
-  std::vector<double> DTdt;       ///< Derivative of T with respect to time.
-  std::vector<double> DTdtnew;       ///< Updated derivative of T with respect to time.
+  std::vector<double> DTgdt;       ///< Derivative of T with respect to time.
+  std::vector<double> DTgdtnew;       ///< Updated derivative of T with respect to time.
+  std::vector<double> DTsdt;       ///< Derivative of T with respect to time.
+  std::vector<double> DTsdtnew;       ///< Updated derivative of T with respect to time.
   std::vector<double> DTdtWall;       ///< Derivative of T wall with respect to time.
   std::vector<double> DTdtWallnew;       ///< Updated derivative of T wall  with respect to time.
   std::vector<double> cachedP0;   ///< Cached hypothetical pressure.
   std::vector<double> cachedP01;   ///< Cached hypothetical pressure.
   std::vector<double> cachedPsi;  ///< Cached reduced grand potential over the column.
   std::vector<double> cachedPsi1;  ///< Cached reduced grand potential over the column.
-  std::vector<double> Tgs;  ///< Gas tempreture
-  std::vector<double> Tgsnew;  ///< Updated Gas tempreture
+  std::vector<double> Tg;  ///< Gas tempreture
+  std::vector<double> Tgnew;  ///< Updated Gas tempreture
+  std::vector<double> Ts;  ///< Gas tempreture
+  std::vector<double> Tsnew;  ///< Updated Gas tempreture
   std::vector<double> Tw;  ///< Wall tempreture  
   std::vector<double> Twnew;  ///< Updated Wall tempreture
   std::vector<double> rho_gas;  ///< Gas density
   std::vector<double> Mol_mix;  ///< Average molar mass
-  std::vector<double> Cpg_mix;  ///< Average molar mass
+  std::vector<double> Cvg_mix;  ///< Average molar mass
   std::vector<double> Tinit;  ///< Tinit
   std::vector<double> DPtdt;
 
@@ -258,9 +262,17 @@ struct Breakthrough
                                            const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
                                            const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);
 
-  void computeFirstDerivatives2(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);                                         
+  void computeFirstDerivatives2(
+    std::vector<double> &dqdt, 
+    std::vector<double> &dpdt, 
+    std::vector<double> &dTgdt, 
+    std::vector<double> &dTsdt, 
+    std::vector<double> &dTdtWall,
+    const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+    const std::vector<double> &v, const std::vector<double> &p, 
+    const std::vector<double> &Tmpg, // T gas
+    const std::vector<double> &Tmps, // T solid
+    std::vector<double> &TmpWall);                             
 
   /**
    * \brief Computes a single simulation step.
@@ -301,7 +313,7 @@ struct Breakthrough
    *
    * Calculates the molar mass mixture.
    */
-  void computeCpgMix(std::vector<double> &Pi);
+  void computeCvgMix(std::vector<double> &Pi);
 
   /**
    * \brief Creates a script to generate a movie for the interstitial gas velocity.
