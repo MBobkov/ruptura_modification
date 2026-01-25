@@ -7,7 +7,7 @@
 
 Component::Component(size_t _id, std::string _name, std::vector<Isotherm> _isotherms, double _Yi0, double _MolMass, double _Kl, double _Kl1,
                      double _D, double _D1, double _dH, double _dH1, double _Cpg, bool _isCarrierGas)
-    : id(_id), name(_name), Yi0(_Yi0), MolMass(_MolMass), Kl(_Kl), Kl1(_Kl1), D(_D), D1(_D1), dH(_dH), dH1(_dH1), Cpg(_Cpg), isCarrierGas(_isCarrierGas) // k1, d1, dH, dH1 added
+    : id(_id), name(_name), Yi0(_Yi0), MolMass(_MolMass), Kl(_Kl), Kl1(_Kl1), D(_D), D1(_D1), dH(_dH), dH1(_dH1), Cvg(_Cpg), isCarrierGas(_isCarrierGas) // k1, d1, dH, dH1 added
 {
   isotherm.numberOfSites = _isotherms.size();
   for (Isotherm it : _isotherms)
