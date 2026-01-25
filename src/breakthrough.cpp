@@ -1503,16 +1503,16 @@ void Breakthrough::createMovieScriptColumnTg()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("T");
+  makeMovieStream << movieScriptTemplate("Tg");
 
 #if (__cplusplus >= 201703L)
-  std::filesystem::path path{"make_movie_T"};
+  std::filesystem::path path{"make_movie_Tg"};
   std::filesystem::permissions(path, std::filesystem::perms::owner_exec, std::filesystem::perm_options::add);
 #else
   chmod("make_movie_T", S_IRWXU);
 #endif
 
-  std::ofstream stream("plot_column_T");
+  std::ofstream stream("plot_column_Tg");
 
   stream << "set encoding utf8\n";
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
@@ -1542,7 +1542,7 @@ void Breakthrough::createMovieScriptColumnTg()
   stream << "set linetype 12 pt 14 ps 1 lw 4 lc rgb '0x000000'\n";
 
   stream << "set bmargin 4\n";
-  stream << "set title '" << displayName << " {/:Italic Tgs_0}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
+  stream << "set title '" << displayName << " {/:Italic Tg_0}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
          << " kPa'\n";
   stream << "stats 'column.data' us 16 nooutput\n";
   stream << "max=STATS_max\n";
@@ -1557,31 +1557,31 @@ void Breakthrough::createMovieScriptColumnTg()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnTg()
+void Breakthrough::createMovieScriptColumnTs()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  std::ofstream makeMovieStream("make_movie_T.bat");
+  std::ofstream makeMovieStream("make_movie_Ts.bat");
 #else
   std::ofstream makeMovieStream("make_movie_T");
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("T");
+  makeMovieStream << movieScriptTemplate("Ts");
 
 #if (__cplusplus >= 201703L)
-  std::filesystem::path path{"make_movie_T"};
+  std::filesystem::path path{"make_movie_Ts"};
   std::filesystem::permissions(path, std::filesystem::perms::owner_exec, std::filesystem::perm_options::add);
 #else
   chmod("make_movie_T", S_IRWXU);
 #endif
 
-  std::ofstream stream("plot_column_T");
+  std::ofstream stream("plot_column_Ts");
 
   stream << "set encoding utf8\n";
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   stream << "set terminal pngcairo size ARG2,ARG3 enhanced font 'Arial,10'\n";
   stream << "set xlabel 'Adsorber position / [m]' font 'Arial,14'\n";
-  stream << "set ylabel 'Gas temperature, {/Arial-Italic T} / [K]' offset 0.0,0 font 'Arial,14'\n";
+  stream << "set ylabel 'Solid temperature, {/Arial-Italic T} / [K]' offset 0.0,0 font 'Arial,14'\n";
   stream << "set key outside top center horizontal samplen 2.5 height 0.5 spacing 1.5 font 'Arial, 10'\n";
 #else
   stream << "set terminal pngcairo size ARG2,ARG3 enhanced font 'Helvetica,10'\n";
@@ -1605,7 +1605,7 @@ void Breakthrough::createMovieScriptColumnTg()
   stream << "set linetype 12 pt 14 ps 1 lw 4 lc rgb '0x000000'\n";
 
   stream << "set bmargin 4\n";
-  stream << "set title '" << displayName << " {/:Italic Tgs_0}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
+  stream << "set title '" << displayName << " {/:Italic Ts_0}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
          << " kPa'\n";
   stream << "stats 'column.data' us 17 nooutput\n";
   stream << "max=STATS_max\n";
