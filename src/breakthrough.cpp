@@ -521,7 +521,7 @@ void Breakthrough::run()
         }
         }
 
-        movieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " " << Cpg_mix[i] << " ";
+        movieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
         
         movieStream << "\n";
       }
@@ -1061,181 +1061,173 @@ void Breakthrough::computeFirstDerivatives(std::vector<double> &dqdt, std::vecto
   }
 }
 
-void Breakthrough::computeFirstDerivatives2(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                            const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                            const std::vector<double> &v, const std::vector<double> &p, const std::vector<double> &Tmp, std::vector<double> &TmpWall)
+void Breakthrough::computeFirstDerivatives2(
+    std::vector<double> &dqdt, 
+    std::vector<double> &dpdt, 
+    std::vector<double> &dTdt, 
+    std::vector<double> &dTdtWall,
+    const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+    const std::vector<double> &v, const std::vector<double> &p, 
+    const std::vector<double> &Tmp, std::vector<double> &TmpWall)
 {
-  double idx = 1.0 / dx;
-  double idx2 = 1.0 / (dx * dx);
-  
-  std::vector<double> dpdt_noT(Ncomp); 
+    double idx = 1.0 / dx;
+    double idx2 = 1.0 / (dx * dx);
 
-  // --- FIRST GRIDPOINT ---
-  if (indexLeft == 0) {
-    for (size_t j = 0; j < Ncomp; ++j) {
-      dqdt[0 * Ncomp + j] = components[j].Kl1 * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
-      dpdt[0 * Ncomp + j] = 0.0;
-      dTdt[0] = 0.0;
-      dTdtWall[0] = 0.0;
-    }
-  }
-  else {
-    for (size_t j = 0; j < Ncomp; ++j) {
-      dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq1[0 * Ncomp + j] - q[0 * Ncomp + j]);
-      dpdt[0 * Ncomp + j] = 0.0;
-      dTdt[0] = 0.0;
-      dTdtWall[0] = 0.0;
-    }
-  }
-
-  // --- MIDDLE GRIDPOINTS ---
-  for (size_t i = 1; i < Ngrid; i++)
-  {
-    double SumDP_noT = 0.0; 
-    double sumH = 0.0;      
-    double C_adsorbed_total = 0.0; 
-
-    // ... (Блок расчета dpdt_noT и dqdt оставляем без изменений) ...
-    // ВНИМАНИЕ: Код внутри if/else if/else для dpdt и dqdt такой же, как был, 
-    // я его свернул для краткости, так как изменения только в блоке Energy Balance
-    
-    if (i < indexLeft) { /* ... код тот же ... */
-       for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-            dqdt[i * Ncomp + j] = components[j].Kl * driving_force;
-            sumH += components[j].dH * components[j].Kl * driving_force;
-            C_adsorbed_total += 0 * q[i * Ncomp + j] * components[j].Cpg;
-            dpdt_noT[j] = (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-                          components[j].D * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-                          prefactorLeft[j] * Tmp[i] * driving_force + 
-                          (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx;
-            SumDP_noT += dpdt_noT[j];
-       }
-    } 
-    else if (i == indexLeft) { /* ... код тот же ... */
+    // =========================================================
+    // 1. ГРАНИЧНАЯ ТОЧКА (Вход)
+    // =========================================================
+    if (indexLeft == 0) {
         for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-            dqdt[i * Ncomp + j] = (components[j].Kl * relLeft + components[j].Kl1 * relRight) * driving_force;
-            sumH += components[j].dH * components[j].Kl * driving_force; 
-            C_adsorbed_total += 0 * q[i * Ncomp + j] * components[j].Cpg;
-            dpdt_noT[j] = (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-                          (components[j].D * relLeft + components[j].D1 * relRight) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-                          prefactorLeftGP[j] * Tmp[i] * driving_force + 
-                          (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx;
-            SumDP_noT += dpdt_noT[j];
+            dqdt[0 * Ncomp + j] = components[j].Kl1 * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
+            dpdt[0 * Ncomp + j] = 0.0; // P_in фиксировано
+            dTdt[0] = 0.0;             // T_in фиксировано
+            dTdtWall[0] = 0.0;
         }
-    }
-    else if (i == indexRight) { /* ... код тот же ... */
-        for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            dqdt[i * Ncomp + j] = (components[j].Kl * relRight + components[j].Kl1 * relLeft) * driving_force;
-            sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
-            C_adsorbed_total += 0 * q[i * Ncomp + j] * components[j].Cpg;
-            dpdt_noT[j] = (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-                          (components[j].D * relRight + components[j].D1 * relLeft) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-                          prefactorRightGP[j] * Tmp[i] * driving_force + 
-                          (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx;
-            SumDP_noT += dpdt_noT[j];
-        }
-    }
-    else { /* ... код тот же ... */
+    } else {
+        // ... (аналогично для else, если вход в другом слое)
          for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            dqdt[i * Ncomp + j] = components[j].Kl1 * driving_force;
-            sumH += components[j].dH1 * components[j].Kl1 * driving_force;
-            C_adsorbed_total += 0 * q[i * Ncomp + j] * components[j].Cpg;
-            dpdt_noT[j] = (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-                          components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-                          prefactorRight[j] * Tmp[i] * driving_force + 
-                          (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx;
-            SumDP_noT += dpdt_noT[j];
+            dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq1[0 * Ncomp + j] - q[0 * Ncomp + j]);
+            dpdt[0 * Ncomp + j] = 0.0;
+            dTdt[0] = 0.0;
+            dTdtWall[0] = 0.0;
         }
     }
 
-    double current_epsilon = (i <= indexLeft) ? epsilon : epsilon1;
-    double current_rhop = (i <= indexLeft) ? rho_p : rho_p1;
-    double current_Cps = (i <= indexLeft) ? Cps : Cps_1;
-    double current_lambda_ax = (i <= indexLeft) ? lambda_ax : lambda_ax_1;
-    double current_h_in = (i <= indexLeft) ? h_in : h_in_1; 
+    // =========================================================
+    // 2. ВНУТРЕННИЕ ТОЧКИ (Цикл по пространству)
+    // =========================================================
+    for (size_t i = 1; i < Ngrid; i++)
+    {
+        double sumH = 0.0;      
+        double C_adsorbed_total = 0.0; 
 
-    // === ИЗМЕНЕНИЯ ЗДЕСЬ ===
-    
-    // 1. Рассчитываем работу расширения явно: P * dV/dz
-    // Используем разность назад для скорости, так же как для температуры
-    double dVdz = (v[i] - v[i-1]) * idx; 
-    
-    // Работа газа. Если dVdz > 0 (расширение), WorkExpansion > 0.
-    // В уравнении баланса этот член стоит слева с "+".
-    // При переносе направо (в Numerator) он становится с минусом.
-    double WorkExpansion = Pt[i] * dVdz * 0; 
+        // -----------------------------------------------------
+        // ШАГ A: Расчет dqdt и тепла адсорбции (sumH)
+        // -----------------------------------------------------
+        // Логика выбора слоя (Left / Interface / Right)
+        if (i <= indexLeft) { 
+             // LAYER 0
+             for (size_t j = 0; j < Ncomp; ++j) {
+                double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
+                dqdt[i * Ncomp + j] = components[j].Kl * driving_force;
+                sumH += components[j].dH * components[j].Kl * driving_force;
+                C_adsorbed_total += 0; // q[...] * Cpg если нужно
+             }
+        } else {
+             // LAYER 1
+             for (size_t j = 0; j < Ncomp; ++j) {
+                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+                dqdt[i * Ncomp + j] = components[j].Kl1 * driving_force;
+                sumH += components[j].dH1 * components[j].Kl1 * driving_force;
+                C_adsorbed_total += 0; 
+             }
+        }
 
-    // 2. Убираем SumDP_noT и вставляем WorkExpansion
-    double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                     - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
-                     + (1.0 - current_epsilon) * current_rhop * sumH 
-                     - 4.0 * current_h_in * (Tmp[i] - Tw[i]) / D_column_inner
-                     - current_epsilon * WorkExpansion; // <--- ВОТ ЭТОТ ЧЛЕН (P * dV/dz)
+        double current_epsilon = (i <= indexLeft) ? epsilon : epsilon1;
+        double current_rhop = (i <= indexLeft) ? rho_p : rho_p1;
+        double current_Cps = (i <= indexLeft) ? Cps : Cps_1;
+        double current_lambda_ax = (i <= indexLeft) ? lambda_ax : lambda_ax_1;
+        double current_h_in = (i <= indexLeft) ? h_in : h_in_1; 
 
-    // 3. Отключаем коррекцию знаменателя
-    double DenomTerm = (Pt[i] / (R * Tmp[i])) * current_epsilon * Cpg_mix[i] 
-                     + (1.0 - current_epsilon) * current_rhop * (current_Cps + C_adsorbed_total);
-    double CompressionCorrection = 0.0; 
+        // -----------------------------------------------------
+        // ШАГ B: Расчет dTdt (Температуры)
+        // -----------------------------------------------------
+        
+        double dVdz = (v[i] - v[i-1]) * idx; 
+        double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
 
-    dTdt[i] = Numerator / (DenomTerm - CompressionCorrection);
-    // ========================
+        double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
+                         - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
+                         + (1.0 - current_epsilon) * current_rhop * sumH 
+                         - 4.0 * current_h_in * (Tmp[i] - Tw[i]) / D_column_inner
+                         - current_epsilon * WorkExpansion;
 
-    dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
+        double DenomTerm = (Pt[i] / (R * Tmp[i])) * current_epsilon * Cpg_mix[i] 
+                         + (1.0 - current_epsilon) * current_rhop * (current_Cps + C_adsorbed_total);
+        
+        dTdt[i] = Numerator / DenomTerm;
 
-    for (size_t j = 0; j < Ncomp; ++j) {
-        dpdt[i * Ncomp + j] = dpdt_noT[j] + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
+        // -----------------------------------------------------
+        // ШАГ C: Расчет dpdt (Давления) - ТЕПЕРЬ СРАЗУ
+        // -----------------------------------------------------
+        
+        if (i <= indexLeft) {
+            // LAYER 0
+            for (size_t j = 0; j < Ncomp; ++j) {
+                double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
+                
+                // Полная формула сразу:
+                dpdt[i * Ncomp + j] = 
+                      (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
+                    + components[j].D * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
+                    - prefactorLeft[j] * Tmp[i] * driving_force 
+                    + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
+                    + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
+            }
+        } else {
+            // LAYER 1
+            for (size_t j = 0; j < Ncomp; ++j) {
+                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+                
+                dpdt[i * Ncomp + j] = 
+                      (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
+                    + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
+                    - prefactorRight[j] * Tmp[i] * driving_force 
+                    + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
+                    + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
+            }
+        }
+
+        // Стена
+        dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+                    + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
     }
-  }
 
-  // --- LAST GRIDPOINT ---
-  {
-      double SumDP_noT = 0.0;
-      double sumH = 0.0;
-      double C_adsorbed_total = 0.0;
+    // =========================================================
+    // 3. ПОСЛЕДНЯЯ ТОЧКА (i = Ngrid)
+    // =========================================================
+    {
+        double sumH = 0.0;
+        //double C_adsorbed_total = 0.0;
 
-      for (size_t j = 0; j < Ncomp; ++j) {
-           /* ... код цикла по компонентам ... */
-           double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-           dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * driving_force;
-           sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
-           C_adsorbed_total += 0 * q[Ngrid * Ncomp + j] * components[j].Cpg;
-           dpdt_noT[j] = (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx +
-                        components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 -
-                        prefactorRight[j] * Tmp[Ngrid] * driving_force; 
-           SumDP_noT += dpdt_noT[j];
-      }
+        // A. Сначала q и H (чтобы найти dTdt)
+        for (size_t j = 0; j < Ncomp; ++j) {
+             double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
+             dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * driving_force;
+             sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
+        }
 
-      // === ИЗМЕНЕНИЯ ДЛЯ ПОСЛЕДНЕЙ ТОЧКИ ===
-      double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx; // Градиент скорости на выходе
-      double WorkExpansion = Pt[Ngrid] * dVdz * 0;
+        // B. Считаем dTdt
+        double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx; 
+        double WorkExpansion = Pt[Ngrid] * dVdz * 0; 
 
-      double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
-                       - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
-                       + (1 - epsilon1) * rho_p1 * sumH 
-                       - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
-                       - epsilon1 * WorkExpansion; // <--- Вставка P * dV/dz
+        double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
+                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
+                         + (1 - epsilon1) * rho_p1 * sumH 
+                         - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
+                         - epsilon1 * WorkExpansion;
 
-      double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] 
-                       + (1 - epsilon1) * rho_p1 * (Cps_1 + C_adsorbed_total);
-      
-      double CompressionCorrection = 0.0; 
+        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] 
+                         + (1 - epsilon1) * rho_p1 * Cps_1;
+        
+        dTdt[Ngrid] = Numerator / DenomTerm;
 
-      dTdt[Ngrid] = Numerator / (DenomTerm - CompressionCorrection);
-      // ======================================
+        // C. Считаем dpdt СРАЗУ
+        for (size_t j = 0; j < Ncomp; ++j) {
+             double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
+             
+             dpdt[Ngrid * Ncomp + j] = 
+                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx 
+                + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
+                - prefactorRight[j] * Tmp[Ngrid] * driving_force
+                + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
+        }
 
-      dTdtWall[Ngrid] = (4 * D_column_inner * h_in * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                      + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
-
-      for (size_t j = 0; j < Ncomp; ++j) {
-          dpdt[Ngrid * Ncomp + j] = dpdt_noT[j] + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid];
-      }
-  }
+        dTdtWall[Ngrid] = (4 * D_column_inner * h_in * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+                        + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
+    }
 }
+
 
 
 
@@ -1919,16 +1911,16 @@ void Breakthrough::createMovieScriptColumnT()
   stream << "set bmargin 4\n";
   stream << "set title '" << displayName << " {/:Italic Tgs_0}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
          << " kPa'\n";
-  stream << "stats 'column.data' us 16 nooutput\n";
+  stream << "stats 'column.data' us "<< std::to_string(4 + 6 * Ncomp) <<" nooutput\n";
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.95*max:1.05*max]\n";
+  stream << "set yrange[0.6*max:1.2*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
-  stream << "    " << "'column.data'" << " us 1:16 index ev*i notitle with li lt 1,\\\n";
-  stream << "    " << "'column.data'" << " us 1:16 index ev*i notitle with po lt 1\n";
+  stream << "    " << "'column.data'" << " us 1:" << std::to_string(4 + 6 * Ncomp) << " index ev*i notitle with li lt 1,\\\n";
+  stream << "    " << "'column.data'" << " us 1:"<< std::to_string(4 + 6 * Ncomp) << " index ev*i notitle with po lt 1\n";
   stream << "}\n";
 }
 
@@ -1982,16 +1974,18 @@ void Breakthrough::createMovieScriptColumnTw()
   stream << "set bmargin 4\n";
   stream << "set title '" << displayName << " {/:Italic Tw_0}=" << Tamb << " K, {/:Italic p_t}=" << p_total * 1e-3
          << " kPa'\n";
-  stream << "stats 'column.data' us 17 nooutput\n";
+  stream << "stats 'column.data' us "<< std::to_string(5 + 6 * Ncomp) <<" nooutput\n";
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.95*max:1.03*max]\n";
+  stream << "set yrange[0.8*max:1.1*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
-  stream << "    " << "'column.data'" << " us 1:17 index ev*i notitle with li lt 1,\\\n";
-  stream << "    " << "'column.data'" << " us 1:17 index ev*i notitle with po lt 1\n";
+  //stream << "    " << "'column.data'" << " us 1:17 index ev*i notitle with li lt 1,\\\n";
+  //stream << "    " << "'column.data'" << " us 1:17 index ev*i notitle with po lt 1\n";
+  stream << "    " << "'column.data'" << " us 1:" << std::to_string(5 + 6 * Ncomp) << " index ev*i notitle with li lt 1,\\\n";
+  stream << "    " << "'column.data'" << " us 1:" << std::to_string(5 + 6 * Ncomp) << " index ev*i notitle with po lt 1\n";
   stream << "}\n";
 }
 
