@@ -16,7 +16,7 @@ set linetype 10 pt 10 ps 1 lw 4 lc rgb '0x1e90ff'
 set linetype 11 pt 12 ps 1 lw 4 lc rgb '0x8b2500'
 set linetype 12 pt 14 ps 1 lw 4 lc rgb '0x000000'
 set bmargin 4
-set key title 'Zeolite-5A-Isothermal-Test {/:Italic T}=298 K, {/:Italic p_t}=1000 kPa'
+set key title 'Zeolite-5A-Isothermal-Test {/:Italic T}=295 K, {/:Italic p_t}=1000 kPa'
 stats 'column.data' nooutput
 max = 0.0;
 do for [i=4:STATS_columns:6] {
@@ -33,6 +33,10 @@ do for [i=0:int((STATS_blocks-2)/ev)] {
   plot \
     'column.data' us 1:4 index ev*i notitle  with li lt 1,\
     'column.data' us 1:10 index ev*i notitle  with li lt 2,\
-    'column.data' us 1:4 index ev*i title 'H2 (y_i=0.7)' with po lt 1,\
-    'column.data' us 1:10 index ev*i title 'CH4 (y_i=0.3)' with po lt 2
+    'column.data' us 1:16 index ev*i notitle  with li lt 3,\
+    'column.data' us 1:22 index ev*i notitle  with li lt 4,\
+    'column.data' us 1:4 index ev*i title 'H2 (y_i=0.722)' with po lt 1,\
+    'column.data' us 1:10 index ev*i title 'CH4 (y_i=0.0417)' with po lt 2,\
+    'column.data' us 1:16 index ev*i title 'CO (y_i=0.0203)' with po lt 3,\
+    'column.data' us 1:22 index ev*i title 'CO2 (y_i=0.216)' with po lt 4
 }

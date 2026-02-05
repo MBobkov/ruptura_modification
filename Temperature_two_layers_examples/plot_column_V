@@ -16,7 +16,7 @@ set linetype 10 pt 10 ps 1 lw 4 lc rgb '0x1e90ff'
 set linetype 11 pt 12 ps 1 lw 4 lc rgb '0x8b2500'
 set linetype 12 pt 14 ps 1 lw 4 lc rgb '0x000000'
 set bmargin 4
-set title 'Zeolite-5A-Isothermal-Test {/:Italic T}=298 K, {/:Italic p_t}=1000 kPa'
+set title 'Zeolite-5A-Isothermal-Test {/:Italic T}=295 K, {/:Italic p_t}=1000 kPa'
 stats 'column.data' us 2 nooutput
 max=STATS_max
 stats 'column.data' us 1 nooutput

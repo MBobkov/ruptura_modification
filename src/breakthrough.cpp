@@ -1179,7 +1179,7 @@ void Breakthrough::computeFirstDerivatives2(
         }
 
         // Стена
-        dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+        dTdtWall[i] = (4 * D_column_inner * current_h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                     + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
     }
 
@@ -1223,7 +1223,7 @@ void Breakthrough::computeFirstDerivatives2(
                 + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
         }
 
-        dTdtWall[Ngrid] = (4 * D_column_inner * h_in * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_1 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                         + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
     }
 }
@@ -1978,7 +1978,7 @@ void Breakthrough::createMovieScriptColumnTw()
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.8*max:1.1*max]\n";
+  stream << "set yrange[0.6*max:1.1*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
