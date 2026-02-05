@@ -71,6 +71,8 @@ struct InputReader
   double columnEntranceVelocity{0.1};                           ///< The entrance velocity of the column in m/s.
   double columnLength{0.3};                                     ///< The length of the column in meters.
   double boundary_coord{0.15};                                  ///< The x-coord of the boundary
+  bool CarrierGasExistance{false};
+  bool IsothermalRegime{false};
   
   //double h_out_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
 

@@ -49,6 +49,7 @@ MixturePrediction::MixturePrediction(const InputReader &inputreader)
       sortedComponents(components),
       Ncomp(components.size()),
       Nsorted(components.size() - inputreader.numberOfCarrierGases),
+      CarrierGasExist(inputreader.CarrierGasExistance),
       numberOfCarrierGases(inputreader.numberOfCarrierGases),
       carrierGasComponent(inputreader.carrierGasComponent),
       predictionMethod(PredictionMethod(inputreader.mixturePredictionMethod)),
@@ -140,7 +141,7 @@ std::pair<size_t, size_t> MixturePrediction::predictMixture(size_t site, const s
 
   // if only an inert component present
   // this happens at the beginning of the simulation when the whole column is filled with the carrier gas
-  if (std::abs(Yi[carrierGasComponent] - 1.0) < tiny)
+  if (std::abs(Yi[carrierGasComponent] - 1.0) < tiny && CarrierGasExist)
   {
     for (size_t i = 0; i < Ncomp; ++i)
     {

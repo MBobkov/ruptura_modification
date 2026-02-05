@@ -195,6 +195,7 @@ class MixturePrediction
   std::vector<Component> sortedComponents;  ///< Components sorted according to specific criteria.
   const size_t Ncomp;                       ///< The total number of components.
   const size_t Nsorted;                     ///< The number of sorted components.
+  bool CarrierGasExist;
   size_t numberOfCarrierGases;              ///< The number of carrier gases in the mixture.
   size_t carrierGasComponent;               ///< The index of the carrier gas component.
   PredictionMethod predictionMethod;        ///< The method used for predicting mixture adsorption isotherms.

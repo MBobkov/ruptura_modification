@@ -538,6 +538,18 @@ InputReader::InputReader(const std::string fileName) : components()
         components[numberOfComponents - 1].isCarrierGas = value;
         continue;
       }
+      if (caseInSensStringCompare(keyword, "Isothermal"))
+      {
+        bool value = parseBoolean(arguments, keyword, lineNumber);
+        IsothermalRegime = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "CarrierGasExist"))
+      {
+        bool value = parseBoolean(arguments, keyword, lineNumber);
+        CarrierGasExistance = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "GasPhaseMolFraction"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
@@ -547,37 +559,22 @@ InputReader::InputReader(const std::string fileName) : components()
       if (caseInSensStringCompare(keyword, "MassTransferCoefficient"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].Kl = value;
-        continue;
-      }
-      if (caseInSensStringCompare(keyword, "MassTransferCoefficient_1"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].Kl1 = value;
+        if (numberOfLayers == 1) { components[numberOfComponents - 1].Kl = value; }
+        if (numberOfLayers == 2) { components[numberOfComponents - 1].Kl1 = value; }
         continue;
       }
       if (caseInSensStringCompare(keyword, "AxialDispersionCoefficient"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].D = value;
-        continue;
-      }
-      if (caseInSensStringCompare(keyword, "AxialDispersionCoefficient_1"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].D1 = value;
+        if (numberOfLayers == 1) { components[numberOfComponents - 1].D = value; }
+        if (numberOfLayers == 2) { components[numberOfComponents - 1].D1 = value; }
         continue;
       }
       if (caseInSensStringCompare(keyword, "AdsorptionHeat"))
-      {
+      { 
         double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].dH = value;
-        continue;
-      }
-      if (caseInSensStringCompare(keyword, "AdsorptionHeat_1"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        components[numberOfComponents - 1].dH1 = value;
+        if (numberOfLayers == 1) { components[numberOfComponents - 1].dH = value; }
+        if (numberOfLayers == 2) { components[numberOfComponents - 1].dH1 = value; }
         continue;
       }
       if (caseInSensStringCompare(keyword, "MolarMass"))
@@ -608,9 +605,15 @@ InputReader::InputReader(const std::string fileName) : components()
           throw std::runtime_error("Error: Langmuir requires two parameters");
         }
         values.resize(2);
+        if (components[numberOfComponents - 1].isCarrierGas) {
+            std::vector<double> val{1.0, 0.0};
+            Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir, val, 2);
+            components[numberOfComponents - 1].isotherm.add(isotherm);
+            components[numberOfComponents - 1].isotherm.numberOfSites = 1;
+            continue;
+        }
         Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir, values, 2);
         components[numberOfComponents - 1].isotherm.add(isotherm);
-        std::cout << "ADDED ISOTHERM LANGMUIR!" << std::endl;
         continue;
       }
       if (caseInSensStringCompare(keyword, "Anti-Langmuir"))
@@ -645,9 +648,15 @@ InputReader::InputReader(const std::string fileName) : components()
           throw std::runtime_error("Error: Henry requires one parameter");
         }
         values.resize(1);
+        if (components[numberOfComponents - 1].isCarrierGas) {
+            std::vector<double> val{1.0, 0.0};
+            Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir, val, 2);
+            components[numberOfComponents - 1].isotherm.add(isotherm);
+            components[numberOfComponents - 1].isotherm.numberOfSites = 1;
+            continue;
+        }
         Isotherm isotherm = Isotherm(Isotherm::Type::Henry, values, 1);
         components[numberOfComponents - 1].isotherm.add(isotherm);
-        std::cout << "ADDED ISOTHERM HENRY!" << std::endl;
         continue;
       }
       if (caseInSensStringCompare(keyword, "Freundlich"))
@@ -680,6 +689,13 @@ InputReader::InputReader(const std::string fileName) : components()
         if (values.size() < 3)
         {
           throw std::runtime_error("Error: Langmuir-Freundlich requires at least three parameters");
+        }
+        if (components[numberOfComponents - 1].isCarrierGas) {
+            std::vector<double> val{1.0, 0.0};
+            Isotherm isotherm = Isotherm(Isotherm::Type::Langmuir, val, 2);
+            components[numberOfComponents - 1].isotherm.add(isotherm);
+            components[numberOfComponents - 1].isotherm.numberOfSites = 1;
+            continue;
         }
         if (values.size() == 3) {
           values.resize(3);
@@ -844,6 +860,17 @@ InputReader::InputReader(const std::string fileName) : components()
     }
   }
 
+  if (IsothermalRegime) {
+     std::cout << "ISOTHERMAL REGIME ON!" << std::endl;
+     for (size_t j = 0; j < components.size(); ++j)
+  {
+    {
+      components[j].dH = 0;
+      components[j].dH1 = 0;
+    }
+  }
+  }
+
   if ((mixturePredictionMethod == 2) || (mixturePredictionMethod == 3))
   {
     for (size_t i = 0; i < components.size(); ++i)
@@ -874,7 +901,7 @@ InputReader::InputReader(const std::string fileName) : components()
 
   if (simulationType == SimulationType::Breakthrough)
   {
-    if (numberOfCarrierGases == 0)
+    if (numberOfCarrierGases == 0 && CarrierGasExistance)
     {
       throw std::runtime_error("Error: no carrier gas component present");
     }

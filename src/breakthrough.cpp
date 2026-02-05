@@ -139,7 +139,9 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       Twnew(Ngrid + 1),
       Mol_mix(Ngrid + 1),
       Cpg_mix(Ngrid + 1),
-      DPtdt(Ngrid + 1)
+      DPtdt(Ngrid + 1),
+      CarrierGasExistance(inputReader.CarrierGasExistance),
+      IsothermalRegime(inputReader.IsothermalRegime)
 {
 
   //std::cout << "IN CONSTRUCTOR!" << std::endl;
@@ -362,10 +364,20 @@ void Breakthrough::initialize()
 
   // set the partial pressure of the carrier gas to the total initial pressure
   // for the column except for the entrance (i=0)
+  if (CarrierGasExistance) {
   for (size_t i = 1; i < Ngrid + 1; ++i)
   {
     P[i * Ncomp + carrierGasComponent] = pt_init[i];
   }
+  }
+
+  else {
+    for (size_t i = 1; i < Ngrid + 1; ++i)
+  {
+    P[i * Ncomp + 0] = pt_init[i];       // P total initialize partial pressure of the first gas component in the column
+  }
+  }
+
 
   // at the column entrance, the mol-fractions of the components in the gas phase are fixed
   // the partial pressures of the components at the entrance are the mol-fractions times the
@@ -698,7 +710,7 @@ void Breakthrough::computeStep(size_t step)
 
   //computeVelocityTempreture();
 
-  computeVelocityTempretureLight();
+  computeVelocityTemperatureLight();
 
   //computeVelocity();
 
@@ -730,7 +742,7 @@ void Breakthrough::computeStep(size_t step)
 
   //computeVelocityTempreture();
 
-  computeVelocityTempretureLight();
+  computeVelocityTemperatureLight();
 
   //computeVelocity();
 
@@ -764,7 +776,7 @@ void Breakthrough::computeStep(size_t step)
 
   //computeVelocityTempreture();
 
-  computeVelocityTempretureLight();
+  computeVelocityTemperatureLight();
 
   //computeVelocity();
 
@@ -1330,7 +1342,7 @@ void Breakthrough::computeCpgMix(std::vector<double> &Pi) {
   }  
 }
 
-void Breakthrough::computeVelocityTempretureLight()
+void Breakthrough::computeVelocityTemperatureLight()
 {
   double idx2 = 1.0 / (dx * dx);
 
@@ -1416,7 +1428,7 @@ void Breakthrough::computeVelocityTempretureLight()
   Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid];// + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]);
 }
 
-void Breakthrough::computeVelocityTempreture()
+void Breakthrough::computeVelocityTemperature()
 {
   double idx2 = 1.0 / (dx * dx);
 

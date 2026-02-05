@@ -226,15 +226,17 @@ struct Breakthrough
   std::vector<double> cachedP01;   ///< Cached hypothetical pressure.
   std::vector<double> cachedPsi;  ///< Cached reduced grand potential over the column.
   std::vector<double> cachedPsi1;  ///< Cached reduced grand potential over the column.
-  std::vector<double> Tgs;  ///< Gas tempreture
-  std::vector<double> Tgsnew;  ///< Updated Gas tempreture
-  std::vector<double> Tw;  ///< Wall tempreture  
-  std::vector<double> Twnew;  ///< Updated Wall tempreture
+  std::vector<double> Tgs;  ///< Gas temperature
+  std::vector<double> Tgsnew;  ///< Updated Gas temperature
+  std::vector<double> Tw;  ///< Wall temperature  
+  std::vector<double> Twnew;  ///< Updated Wall temperature
   std::vector<double> rho_gas;  ///< Gas density
   std::vector<double> Mol_mix;  ///< Average molar mass
   std::vector<double> Cpg_mix;  ///< Average molar mass
   std::vector<double> Tinit;  ///< Tinit
   std::vector<double> DPtdt;
+  bool CarrierGasExistance{false};
+  bool IsothermalRegime{false};
 
   enum class IntegrationScheme
   {
@@ -289,13 +291,13 @@ struct Breakthrough
    *
    * Updates the velocities based on current pressures and adsorption amounts with T influence.
    */
-  void computeVelocityTempreture();
+  void computeVelocityTemperature();
    /**
    * \brief Computes the interstitial gas velocities along the column with T influence.
    *
    * Updates the velocities (light version) based on current pressures and adsorption amounts with T influence.
    */
-  void computeVelocityTempretureLight();
+  void computeVelocityTemperatureLight();
   /**
    * \brief Computes Molar Mass mixture along the column.
    *
