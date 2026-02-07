@@ -170,6 +170,11 @@ InputReader::InputReader(const std::string fileName) : components()
             simulationType = SimulationType::Breakthrough;
             continue;
           }
+          if (caseInSensStringCompare(str, "Pressurization"))
+          {
+            simulationType = SimulationType::Pressurization;
+            continue;
+          }
           if (caseInSensStringCompare(str, "MixturePrediction"))
           {
             simulationType = SimulationType::MixturePrediction;

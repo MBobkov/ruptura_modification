@@ -42,6 +42,7 @@ set(CXX_COMPILE_FLAGS
 # Collect source files
 set(SOURCES
     src/breakthrough.cpp
+    src/pressurization.cpp
     src/component.cpp
     src/fitting.cpp
     src/inputreader.cpp
