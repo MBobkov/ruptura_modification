@@ -1,6 +1,7 @@
 #include <exception>
 
 #include "breakthrough.h"
+#include "pressurization.h"
 #include "fitting.h"
 #include "inputreader.h"
 #include "mixture_prediction.h"
@@ -25,6 +26,18 @@ int main(void)
         breakthrough.createPlotScript();
         breakthrough.createMovieScripts();
         breakthrough.run();
+        
+        break;
+      }
+      case InputReader::SimulationType::Pressurization:
+      {
+        Pressurization pressurization(reader);
+        
+        pressurization.print();
+        pressurization.initialize();
+        pressurization.createPlotScript();
+        pressurization.createMovieScripts();
+        pressurization.run();
         
         break;
       }

@@ -20,7 +20,7 @@ namespace py = pybind11;
  * simulation parameters, computation of time steps, and generation of output scripts
  * for plotting and visualization.
  */
-struct Breakthrough
+struct Pressurization
 {
  public:
   /**
@@ -30,7 +30,7 @@ struct Breakthrough
    *
    * \param inputreader Reference to an InputReader containing simulation parameters.
    */
-  Breakthrough(const InputReader &inputreader);
+  Pressurization(const InputReader &inputreader);
 
   /**
    * \brief Constructs a Breakthrough simulation with specified parameters.
@@ -57,7 +57,7 @@ struct Breakthrough
    * \param _pulseTime Pulse time.
    * \param _mixture MixturePrediction object for mixture predictions.
    */
-  Breakthrough(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
+  Pressurization(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
                size_t _numberOfGridPoints, size_t _printEvery, size_t _writeEvery, double _temperature, double _p_total,
                double _columnVoidFraction, double _pressureGradient, double _particleDensity, double _particleDensity1,
                double _boundary_len, double _columnEntranceVelocity, double _columnLength, double _timeStep, size_t _numberOfTimeSteps,
@@ -164,6 +164,7 @@ struct Breakthrough
   double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
+  double Pmin{1e5};
   
   
   //double h_out_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]

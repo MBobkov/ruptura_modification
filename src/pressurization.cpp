@@ -14,7 +14,8 @@
 #include <sys/stat.h>
 #endif
 
-#include "breakthrough.h"
+#include "pressurization.h"
+
 #include "mixture_prediction.h"
 
 #ifdef PYBUILD
@@ -59,7 +60,7 @@ std::pair<T, U> &operator+=(std::pair<T, U> &l, const std::pair<T, U> &r)
   return l;
 }
 
-Breakthrough::Breakthrough(const InputReader &inputReader)
+Pressurization::Pressurization(const InputReader &inputReader)
     : displayName(inputReader.displayName),
       components(inputReader.components),
       carrierGasComponent(inputReader.carrierGasComponent),
@@ -195,7 +196,7 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
 
 }
 
-Breakthrough::Breakthrough(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
+Pressurization::Pressurization(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
                             size_t _numberOfGridPoints, size_t _printEvery, size_t _writeEvery, double _temperature,
                            double _p_total, double _columnVoidFraction, double _pressureGradient,
                            double _particleDensity, double _particleDensity1, double _boundary_len, double _columnEntranceVelocity, double _columnLength, //ADDED
@@ -312,7 +313,7 @@ Breakthrough::Breakthrough(std::string _displayName, std::vector<Component> _com
   initialize();
 }
 
-void Breakthrough::initialize()
+void Pressurization::initialize()
 {
   // precomputed factor for mass transfer
   for (size_t j = 0; j < Ncomp; ++j)
@@ -348,18 +349,18 @@ void Breakthrough::initialize()
   // set the initial total pressure along the column assuming the pressure gradient is constant
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    pt_init[i] = p_total + dptdx * static_cast<double>(i) * dx;
+    pt_init[i] = Pmin + dptdx * static_cast<double>(i) * dx;
   }
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    pt_init1[i] = p_total + dptdx * static_cast<double>(i) * dx;
+    pt_init1[i] = Pmin + dptdx * static_cast<double>(i) * dx;
   }
 
   // initialize the interstitial gas velocity in the column
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    V[i] = v_in * p_total / pt_init[i];
+    V[i] = v_in * Pmin / pt_init[i];
   }
 
   // set the partial pressure of the carrier gas to the total initial pressure
@@ -449,7 +450,7 @@ void Breakthrough::initialize()
   }
 }
 
-void Breakthrough::run()
+void Pressurization::run()
 {
 
   // create the output files
@@ -559,7 +560,7 @@ void Breakthrough::run()
 
 #ifdef PYBUILD
 
-py::array_t<double> Breakthrough::compute()
+py::array_t<double> Pressurization::compute()
 {
   size_t colsize = 6 * Ncomp + 5;
   std::vector<std::vector<std::vector<double>>> brk;
@@ -627,7 +628,7 @@ py::array_t<double> Breakthrough::compute()
   return py_breakthrough;
 }
 
-void Breakthrough::setComponentsParameters(std::vector<double> molfracs, std::vector<double> params)
+void Pressurization::setComponentsParameters(std::vector<double> molfracs, std::vector<double> params)
 {
   size_t index = 0;
   for (size_t i = 0; i < Ncomp; ++i)
@@ -655,7 +656,7 @@ std::vector<double> Breakthrough::getComponentsParameters()
 }
 #endif  // PYBUILD
 
-void Breakthrough::computeStep(size_t step)
+void Pressurization::computeStep(size_t step)
 {
   double t = static_cast<double>(step) * dt;
 
@@ -809,7 +810,7 @@ void Breakthrough::computeStep(size_t step)
   }
 }
 
-void Breakthrough::computeEquilibriumLoadings()
+void Pressurization::computeEquilibriumLoadings()
 {
   // calculate new equilibrium loadings Qeqnew corresponding to the new timestep
   for (size_t i = 0; i < Ngrid + 1; ++i)
@@ -884,7 +885,7 @@ void Breakthrough::computeEquilibriumLoadings()
 }
 
 // calculate the derivatives Dq/dt and Dp/dt along the column
-void Breakthrough::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
+void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
                                            const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
                                            const std::vector<double> &v, const std::vector<double> &p, const std::vector<double> &Tmp, std::vector<double> &TmpWall)
 {
@@ -1073,7 +1074,7 @@ void Breakthrough::computeFirstDerivatives(std::vector<double> &dqdt, std::vecto
   }
 }
 
-void Breakthrough::computeFirstDerivatives2(
+void Pressurization::computeFirstDerivatives2(
     std::vector<double> &dqdt, 
     std::vector<double> &dpdt, 
     std::vector<double> &dTdt, 
@@ -1244,7 +1245,7 @@ void Breakthrough::computeFirstDerivatives2(
 
 
 // calculate new velocity Vnew from Qnew, Qeqnew, Pnew, Pt
-void Breakthrough::computeVelocity()
+void Pressurization::computeVelocity()
 {
   double idx2 = 1.0 / (dx * dx);
 
@@ -1329,7 +1330,7 @@ void Breakthrough::computeVelocity()
   Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid];
 }
 
-void Breakthrough::computeCpgMix(std::vector<double> &Pi) {
+void Pressurization::computeCpgMix(std::vector<double> &Pi) {
   //std::fill(Mol_mix.begin(), Mol_mix.end(), 0.0);
   std::fill(Cpg_mix.begin(), Cpg_mix.end(), 0.0);
   for (size_t i = 0; i < Ngrid + 1; ++i)
@@ -1342,7 +1343,7 @@ void Breakthrough::computeCpgMix(std::vector<double> &Pi) {
   }  
 }
 
-void Breakthrough::computeVelocityTemperatureLight()
+void Pressurization::computeVelocityTemperatureLight()
 {
   double idx2 = 1.0 / (dx * dx);
 
@@ -1428,7 +1429,7 @@ void Breakthrough::computeVelocityTemperatureLight()
   Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid];// + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]);
 }
 
-void Breakthrough::computeVelocityTemperature()
+void Pressurization::computeVelocityTemperature()
 {
   double idx2 = 1.0 / (dx * dx);
 
@@ -1580,9 +1581,9 @@ void Breakthrough::computeVelocityTemperature()
     Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]) + Vnew[Ngrid - 1] * (Tgsnew[Ngrid] - Tgsnew[Ngrid - 1]) / Tgsnew[Ngrid] - Vnew[Ngrid - 1] * (Pt[Ngrid] - Pt[Ngrid - 1]) / Pt[Ngrid] - sum * dx * Tgsnew[Ngrid] / Pt[Ngrid] + sum_disp * dx / Pt[Ngrid];
 }
 
-void Breakthrough::print() const { std::cout << repr(); }
+void Pressurization::print() const { std::cout << repr(); }
 
-std::string Breakthrough::repr() const
+std::string Pressurization::repr() const
 {
   std::string s;
   s += "Column properties\n";
@@ -1629,7 +1630,7 @@ std::string Breakthrough::repr() const
   return s;
 }
 
-void Breakthrough::createPlotScript()
+void Pressurization::createPlotScript()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream stream_graphs("make_graphs.bat");
@@ -1712,7 +1713,7 @@ void Breakthrough::createPlotScript()
   }
 }
 
-void Breakthrough::createMovieScripts()
+void Pressurization::createMovieScripts()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movies.bat");
@@ -1763,7 +1764,7 @@ void Breakthrough::createMovieScripts()
 // -crf 18: the range of the CRF scale is 0–51, where 0 is lossless, 23 is the default,
 //          and 51 is worst quality possible; 18 is visually lossless or nearly so.
 // -pix_fmt yuv420p: needed on apple devices
-std::string movieScriptTemplate(std::string s)
+std::string movieScriptTemplateP(std::string s)
 {
   std::ostringstream stream;
 
@@ -1810,7 +1811,7 @@ std::string movieScriptTemplate(std::string s)
   return stream.str();
 }
 
-void Breakthrough::createMovieScriptColumnV()
+void Pressurization::createMovieScriptColumnV()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_V.bat");
@@ -1819,7 +1820,7 @@ void Breakthrough::createMovieScriptColumnV()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("V");
+  makeMovieStream << movieScriptTemplateP("V");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_V"};
@@ -1873,7 +1874,7 @@ void Breakthrough::createMovieScriptColumnV()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnT()
+void Pressurization::createMovieScriptColumnT()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_T.bat");
@@ -1882,7 +1883,7 @@ void Breakthrough::createMovieScriptColumnT()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("T");
+  makeMovieStream << movieScriptTemplateP("T");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_T"};
@@ -1936,7 +1937,7 @@ void Breakthrough::createMovieScriptColumnT()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnTw()
+void Pressurization::createMovieScriptColumnTw()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Tw.bat");
@@ -1945,7 +1946,7 @@ void Breakthrough::createMovieScriptColumnTw()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Tw");
+  makeMovieStream << movieScriptTemplateP("Tw");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Tw"};
@@ -2001,7 +2002,7 @@ void Breakthrough::createMovieScriptColumnTw()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnPt()
+void Pressurization::createMovieScriptColumnPt()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Pt.bat");
@@ -2010,7 +2011,7 @@ void Breakthrough::createMovieScriptColumnPt()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Pt");
+  makeMovieStream << movieScriptTemplateP("Pt");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Pt"};
@@ -2064,7 +2065,7 @@ void Breakthrough::createMovieScriptColumnPt()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnQ()
+void Pressurization::createMovieScriptColumnQ()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Q.bat");
@@ -2073,7 +2074,7 @@ void Breakthrough::createMovieScriptColumnQ()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Q");
+  makeMovieStream << movieScriptTemplateP("Q");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Q"};
@@ -2142,7 +2143,7 @@ void Breakthrough::createMovieScriptColumnQ()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnQeq()
+void Pressurization::createMovieScriptColumnQeq()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Qeq.bat");
@@ -2151,7 +2152,7 @@ void Breakthrough::createMovieScriptColumnQeq()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Qeq");
+  makeMovieStream << movieScriptTemplateP("Qeq");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Qeq"};
@@ -2220,7 +2221,7 @@ void Breakthrough::createMovieScriptColumnQeq()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnP()
+void Pressurization::createMovieScriptColumnP()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_P.bat");
@@ -2229,7 +2230,7 @@ void Breakthrough::createMovieScriptColumnP()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("P");
+  makeMovieStream << movieScriptTemplateP("P");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_P"};
@@ -2298,7 +2299,7 @@ void Breakthrough::createMovieScriptColumnP()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnPnormalized()
+void Pressurization::createMovieScriptColumnPnormalized()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Pnorm.bat");
@@ -2307,7 +2308,7 @@ void Breakthrough::createMovieScriptColumnPnormalized()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Pnorm");
+  makeMovieStream << movieScriptTemplateP("Pnorm");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Pnorm"};
@@ -2376,7 +2377,7 @@ void Breakthrough::createMovieScriptColumnPnormalized()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnDpdt()
+void Pressurization::createMovieScriptColumnDpdt()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Dpdt.bat");
@@ -2385,7 +2386,7 @@ void Breakthrough::createMovieScriptColumnDpdt()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Dpdt");
+  makeMovieStream << movieScriptTemplateP("Dpdt");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Dpdt"};
@@ -2458,7 +2459,7 @@ void Breakthrough::createMovieScriptColumnDpdt()
   stream << "}\n";
 }
 
-void Breakthrough::createMovieScriptColumnDqdt()
+void Pressurization::createMovieScriptColumnDqdt()
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   std::ofstream makeMovieStream("make_movie_Dqdt.bat");
@@ -2467,7 +2468,7 @@ void Breakthrough::createMovieScriptColumnDqdt()
   makeMovieStream << "#!/bin/sh\n";
   makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
 #endif
-  makeMovieStream << movieScriptTemplate("Dqdt");
+  makeMovieStream << movieScriptTemplateP("Dqdt");
 
 #if (__cplusplus >= 201703L)
   std::filesystem::path path{"make_movie_Dqdt"};
