@@ -271,7 +271,7 @@ Pressurization::Pressurization(std::string _displayName, std::vector<Component> 
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    if (boundaryCoordinate -  static_cast<double>(i) * dx < 0)  {
+    if (boundaryCoordinate - static_cast<double>(i) * dx < 0)  {
        indexLeft = i - 1;
        indexMid = 0;
        indexRight = i;
@@ -358,9 +358,16 @@ void Pressurization::initialize()
   }
 
   // initialize the interstitial gas velocity in the column
-  for (size_t i = 0; i < Ngrid + 1; ++i)
+  //for (size_t i = 1; i < Ngrid + 1; ++i)
+  //{
+  //  V[i] = v_in * Pmin / pt_init[i];
+ // }
+
+  V[0] = v_in * Pmin / pt_init[0];
+
+  for (size_t i = 1; i < Ngrid + 1; ++i)
   {
-    V[i] = v_in * Pmin / pt_init[i];
+    V[i] = 0;
   }
 
   // set the partial pressure of the carrier gas to the total initial pressure
@@ -499,7 +506,7 @@ void Pressurization::run()
       for (size_t j = 0; j < Ncomp; ++j)
       {
         streams[j] << t * v_in / L << " " << t / 60.0 << " "
-                   << P[Ngrid * Ncomp + j] / ((p_total + dptdx * L) * components[j].Yi0) << std::endl;
+                    << P[Ngrid * Ncomp + j] / ((Pt[Ngrid]) * components[j].Yi0) << std::endl;
       }
 
       for (size_t i = 0; i < Ngrid + 1; ++i)
@@ -665,10 +672,20 @@ void Pressurization::computeStep(size_t step)
   if (autoSteps)
   {
     double tolerance = 0.0;
+    double tolerancePressure;
     for (size_t j = 0; j < Ncomp; ++j)
     {
       tolerance =
-          std::max(tolerance, std::abs((P[Ngrid * Ncomp + j] / ((p_total + dptdx * L) * components[j].Yi0)) - 1.0));
+          std::max(tolerance, std::abs((P[Ngrid * Ncomp + j] / (Pt[Ngrid] * components[j].Yi0)) - 1.0));
+    }
+
+    tolerancePressure = std::abs(Pt[Ngrid] - p_total);
+
+    if (tolerancePressure < 1e-3)
+    {
+      std::cout << "\nPressure convergence reached!\n\n" << std::endl;
+      Nsteps = static_cast<size_t>(1 * static_cast<double>(step));
+      autoSteps = false;
     }
 
     // consider 1% as being visibily indistinguishable from 'converged'
@@ -1215,7 +1232,7 @@ void Pressurization::computeFirstDerivatives2(
         double WorkExpansion = Pt[Ngrid] * dVdz * 0; 
 
         double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
-                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
+                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * 0 * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
                          + (1 - epsilon1) * rho_p1 * sumH 
                          - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
                          - epsilon1 * WorkExpansion;
@@ -1230,7 +1247,7 @@ void Pressurization::computeFirstDerivatives2(
              double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
              
              dpdt[Ngrid * Ncomp + j] = 
-                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx 
+                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - 0 * p[Ngrid * Ncomp + j]) * idx
                 + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
                 - prefactorRight[j] * Tmp[Ngrid] * driving_force
                 + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
@@ -1349,6 +1366,7 @@ void Pressurization::computeVelocityTemperatureLight()
 
   // first grid point
   Vnew[0] = v_in;
+  Vnew[Ngrid] = 0; // V[L] = 0
 
   // middle gridpoints
   for (size_t i = 1; i < Ngrid; ++i)
@@ -1362,11 +1380,11 @@ void Pressurization::computeVelocityTemperatureLight()
     {
       sum =
           sum - prefactorLeft[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-          components[j].D * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+          components[j].D * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2 - Dpdtnew[i * Ncomp + j];
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
+    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / dx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
   }
 
   if (i == indexLeft) {
@@ -1377,11 +1395,11 @@ void Pressurization::computeVelocityTemperatureLight()
     {
       sum =
           sum - prefactorLeftGP[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D * relLeft + components[j].D1 * relRight) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+           (components[j].D * relLeft + components[j].D1 * relRight) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2 - Dpdtnew[i * Ncomp + j];
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
+    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / dx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
   }
 
   if (i == indexRight) {
@@ -1392,11 +1410,11 @@ void Pressurization::computeVelocityTemperatureLight()
     {
       sum =
           sum - prefactorRightGP[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D * relRight + components[j].D1 * relLeft) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+           (components[j].D * relRight + components[j].D1 * relLeft) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2 - Dpdtnew[i * Ncomp + j];
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
+    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / dx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
   }
 
   if (i > indexRight) {
@@ -1407,12 +1425,12 @@ void Pressurization::computeVelocityTemperatureLight()
     {
       sum =
           sum - prefactorRight[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           components[j].D1 * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+           components[j].D1 * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2 - Dpdtnew[i * Ncomp + j];
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
     
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
+    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / dx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
   }
     
   }
@@ -1426,7 +1444,7 @@ void Pressurization::computeVelocityTemperatureLight()
   }
   //double thermal_expansion = Vnew[Ngrid] * (Tgsnew[Ngrid] - Tgsnew[Ngrid-1]) / Tgsnew[Ngrid]; // must be zero T[N] = T[N-1]
   // explicit version
-  Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid];// + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]);
+  //Vnew[Ngrid] = 0; // Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid];// + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]);
 }
 
 void Pressurization::computeVelocityTemperature()

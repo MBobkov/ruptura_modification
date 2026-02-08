@@ -18,8 +18,8 @@ int main(void)
       case InputReader::SimulationType::Breakthrough:
       default:
       {
+        std::cout << "Breakthrough simulation!" << std::endl;
         Breakthrough breakthrough(reader);
-        
         
         breakthrough.print();
         breakthrough.initialize();
@@ -31,6 +31,7 @@ int main(void)
       }
       case InputReader::SimulationType::Pressurization:
       {
+        std::cout << "Pressurization simulation!" << std::endl;
         Pressurization pressurization(reader);
         
         pressurization.print();
