@@ -315,6 +315,18 @@ InputReader::InputReader(const std::string fileName) : components()
         this->h_in = value;
         continue;
       }
+      if (caseInSensStringCompare(keyword, "RampTime"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->RampTime = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Pmin"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->Pmin = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "h_in_1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);

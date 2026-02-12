@@ -50,6 +50,8 @@ struct InputReader
   double temperature{433.0};                                    ///< The simulation temperature in Kelvin.
   double columnVoidFraction{0.4};                               ///< The void fraction of the column.
   double columnVoidFraction_1{0.4};                               ///< The void fraction of the column.
+  double RampTime{1};                               ///< The void fraction of the column.
+  double Pmin{1e5};                               ///< The void fraction of the column.
 
   double Cps{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]
   double Cps_1{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]

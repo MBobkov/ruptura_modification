@@ -164,7 +164,9 @@ struct Pressurization
   double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
-  double Pmin{1e5};
+  double ramp_time;
+  double Pmin;
+  
   
   
   //double h_out_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
@@ -292,13 +294,13 @@ struct Pressurization
    *
    * Updates the velocities based on current pressures and adsorption amounts with T influence.
    */
-  void computeVelocityTemperature();
+  void computeVelocityTemperature(const std::vector<double>& current_dpdt);
    /**
    * \brief Computes the interstitial gas velocities along the column with T influence.
    *
    * Updates the velocities (light version) based on current pressures and adsorption amounts with T influence.
    */
-  void computeVelocityTemperatureLight();
+  void computeVelocityTemperatureLight(const std::vector<double>& current_dpdt);
   /**
    * \brief Computes Molar Mass mixture along the column.
    *
