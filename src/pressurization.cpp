@@ -630,7 +630,7 @@ void Pressurization::computeStep(size_t step)
         bool flag = false;
 
         for (size_t i=0; i < Ngrid + 1; i++) {
-          if (Pt[i] >= p_total * 0.9999) flag = true;
+          if (Pt[i] >= p_total * 0.99) flag = true;
           else 
           {
             flag = false;
@@ -733,7 +733,7 @@ void Pressurization::computeStep(size_t step)
     computeEquilibriumLoadings(); // Обновляет Qeqnew
     
     // Считаем скорость. ПЕРЕДАЕМ Dpdt (производные текущего шага).
-    computeVelocityTemperatureLight(Dpdt); 
+    computeVelocityTemperatureLight(Dpdt, DTdt); 
 
     // ==================================================================
     // SSP-RK Step 2
@@ -753,7 +753,7 @@ void Pressurization::computeStep(size_t step)
 
     computeCpgMix(Pnew);
     computeEquilibriumLoadings();
-    computeVelocityTemperatureLight(Dpdtnew); // Передаем Dpdtnew
+    computeVelocityTemperatureLight(Dpdtnew, DTdtnew); // Передаем Dpdtnew
 
     // ==================================================================
     // SSP-RK Step 3
@@ -773,7 +773,7 @@ void Pressurization::computeStep(size_t step)
 
     computeCpgMix(Pnew);
     computeEquilibriumLoadings();
-    computeVelocityTemperatureLight(Dpdtnew);
+    computeVelocityTemperatureLight(Dpdtnew, DTdtnew);
 
     // ==================================================================
     // FINAL UPDATE
@@ -941,6 +941,20 @@ void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vec
           sumH += components[j].dH1 * components[j].Kl1 * driving_force;
           C_adsorbed_total += 0; 
         }
+
+        for (size_t j = 0; j < Ncomp; ++j) {
+            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+            
+            dpdt[i * Ncomp + j] = 
+                  (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
+                + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
+                - prefactorRight[j] * Tmp[i] * driving_force 
+                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx;
+                //+ (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
+        }
+        
+        double dPtdt_local = 0;
+        for (size_t j = 0; j < Ncomp; ++j) dPtdt_local += dpdt[i * Ncomp + j];
         
 
         double current_epsilon = epsilon1;
@@ -953,14 +967,16 @@ void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vec
         // ШАГ B: Расчет dTdt (Температуры)
         // -----------------------------------------------------
         
-        double dVdz = (v[i] - v[i-1]) * idx; 
-        double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
+        //double dVdz = (v[i] - v[i-1]) * idx; 
+        //double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
+
+        double WorkExpansion = dPtdt_local * 0;
 
         double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
                          - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
                          + (1.0 - current_epsilon) * current_rhop * sumH 
                          - 4.0 * current_h_in * (Tmp[i] - Tw[i]) / D_column_inner
-                         - current_epsilon * WorkExpansion;
+                         + current_epsilon * WorkExpansion;
 
         double DenomTerm = (Pt[i] / (R * Tmp[i])) * current_epsilon * Cpg_mix[i] 
                          + (1.0 - current_epsilon) * current_rhop * (current_Cps + C_adsorbed_total);
@@ -969,21 +985,8 @@ void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vec
 
         // -----------------------------------------------------
         // ШАГ C: Расчет dpdt (Давления) - ТЕПЕРЬ СРАЗУ
-        // -----------------------------------------------------
-        
-        
-            // LAYER 1
-        for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            
-            dpdt[i * Ncomp + j] = 
-                  (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[i] * driving_force 
-                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
-        }
-        
+        // -----------------------
+        for (size_t j = 0; j < Ncomp; ++j) dpdt[i * Ncomp + j] += (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
 
         // Стена
         dTdtWall[i] = (4 * D_column_inner * current_h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
@@ -1004,31 +1007,36 @@ void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vec
              sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
         }
 
+         for (size_t j = 0; j < Ncomp; ++j) {
+            double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
+            
+            dpdt[Ngrid * Ncomp + j] = 
+                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx 
+                + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
+                - prefactorRight[j] * Tmp[Ngrid] * driving_force 
+                + (v[Ngrid] * p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx;
+                //+ (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
+        }
+
+        double dPtdt_local = 0;
+        for (size_t j = 0; j < Ncomp; ++j) dPtdt_local += dpdt[Ngrid * Ncomp + j];
+        
         // B. Считаем dTdt
-        double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx * 0; 
-        double WorkExpansion = Pt[Ngrid] * dVdz; 
+        //double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx * 0; 
+        double WorkExpansion = dPtdt_local * 0; 
 
         double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
-                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
+                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx * 0 // dTdz = 0; Ngrid
                          + (1 - epsilon1) * rho_p1 * sumH 
                          - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
-                         - epsilon1 * WorkExpansion;
+                         + epsilon1 * WorkExpansion;
 
         double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] 
                          + (1 - epsilon1) * rho_p1 * Cps_1;
         
         dTdt[Ngrid] = Numerator / DenomTerm;
 
-        // C. Считаем dpdt СРАЗУ
-        for (size_t j = 0; j < Ncomp; ++j) {
-             double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             
-             dpdt[Ngrid * Ncomp + j] = 
-                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx
-                + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[Ngrid] * driving_force
-                + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
-        }
+        for (size_t j = 0; j < Ncomp; ++j) dpdt[Ngrid * Ncomp + j] += (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid];
 
         dTdtWall[Ngrid] = (4 * D_column_inner * h_in_1 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                         + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
@@ -1333,7 +1341,7 @@ void Pressurization::computeCpgMix(std::vector<double> &Pi) {
   }  
 }
 
-void Pressurization::computeVelocityTemperatureLight(const std::vector<double>& current_dpdt)
+void Pressurization::computeVelocityTemperatureLight(const std::vector<double>& current_dpdt, const std::vector<double>& current_dTdt)
 {
   // 1. Граничное условие: Тупик на ПРАВОЙ границе.
     // Если Ngrid - это количество ячеек, то граней Ngrid + 1 (от 0 до Ngrid).
@@ -1349,10 +1357,10 @@ void Pressurization::computeVelocityTemperatureLight(const std::vector<double>& 
     // Цикл пробежит значения i: Ngrid-1, Ngrid-2, ..., 1, 0
     for (size_t i = Ngrid; i-- > 0; )
     {
-        double current_Pt = Pt[i];
+        double current_Pt = Pt[i + 1];
         if (current_Pt < 1.0) current_Pt = 1.0; 
         
-        double current_T = Tgsnew[i];
+        double current_T = Tgsnew[i + 1];
 
         double sum_sorption = 0.0;
         const double idx2 = 1.0 / (dx * dx);
@@ -1368,8 +1376,8 @@ void Pressurization::computeVelocityTemperatureLight(const std::vector<double>& 
 
         for (size_t j = 0; j < Ncomp; ++j) {
                  // Здесь ваша логика для правой границы
-                 sum_sorption += prefactorRight[j] * current_T * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-                        components[j].D1 * (Pnew[(i - 1) * Ncomp + j] - Pnew[i * Ncomp + j]) * idx2; 
+                 sum_sorption += prefactorRight[j] * current_T * (Qeqnew[(i + 1) * Ncomp + j] - Qnew[(i + 1) * Ncomp + j]) +
+                        components[j].D1 * (Pnew[(i) * Ncomp + j] - Pnew[(i + 1) * Ncomp + j]) * idx2; 
             }
 
         double term_Accumulation = (1.0 / current_Pt) * dPt_dt_local;
@@ -1377,8 +1385,10 @@ void Pressurization::computeVelocityTemperatureLight(const std::vector<double>& 
         double dPdz = (Pt[i + 1] - Pt[i]) / dx;
 
        //std::cout << sum_sorption << std::endl;
+
+        double thermal_expansion = Vnew[i] * (Tgsnew[i + 1] - Tgsnew[i]) / (Tgsnew[i + 1] * dx);
         
-        double total_demand = term_Accumulation + (1.0 / current_Pt) * Vnew[i] * dPdz + (1.0 / current_Pt) * sum_sorption;
+        double total_demand = term_Accumulation + (1.0 / current_Pt) * Vnew[i + 1] * dPdz + (1.0 / current_Pt) * sum_sorption - thermal_expansion - (current_dTdt[i + 1] / Tgsnew[i + 1]);
         
         // Vnew[i+1] уже рассчитан на предыдущей итерации цикла (или это стена 0.0)
         Vnew[i] = Vnew[i + 1] + total_demand * dx;
@@ -1968,12 +1978,11 @@ void Pressurization::createMovieScriptColumnQ()
          << " kPa'\n";
   stream << "stats 'column.data' nooutput\n";
   stream << "max = 0.0;\n";
-  stream << "do for [i=4:STATS_columns:6] {\n";
-  stream << "  stats 'column.data' us i nooutput\n";
-  stream << "  if (max<STATS_max) {\n";
-  stream << "    max=STATS_max\n";
-  stream << "  }\n";
-  stream << "}\n";
+  for (size_t i = 0; i < Ncomp; i++) {
+    int col = 4 + static_cast<int>(i) * 6;
+    stream << "  stats 'column.data' us " << col << " nooutput\n";
+    stream << "  if (max < STATS_max) { max = STATS_max; }\n";
+  }
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";
@@ -2046,12 +2055,11 @@ void Pressurization::createMovieScriptColumnQeq()
          << " kPa'\n";
   stream << "stats 'column.data' nooutput\n";
   stream << "max = 0.0;\n";
-  stream << "do for [i=5:STATS_columns:6] {\n";
-  stream << "  stats 'column.data' us i nooutput\n";
-  stream << "  if (max<STATS_max) {\n";
-  stream << "    max=STATS_max\n";
-  stream << "  }\n";
-  stream << "}\n";
+  for (size_t i = 0; i < Ncomp; i++) {
+    int col = 5 + static_cast<int>(i) * 6;
+    stream << "  stats 'column.data' us " << col << " nooutput\n";
+    stream << "  if (max < STATS_max) { max = STATS_max; }\n";
+  }
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";

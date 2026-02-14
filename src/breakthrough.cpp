@@ -322,12 +322,12 @@ void Breakthrough::initialize()
 
   for (size_t j = 0; j < Ncomp; ++j)
   {
-    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p*relLeft + rho_p1*relRight ) * ( components[j].Kl*relLeft + components[j].Kl1*relRight );
+    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p ) * ( components[j].Kl );
   }
 
   for (size_t j = 0; j < Ncomp; ++j)
   {
-    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p*relRight + rho_p1*relLeft ) * ( components[j].Kl*relRight + components[j].Kl1*relLeft );
+    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p1 ) * (components[j].Kl1 );
   }
   
   for (size_t j = 0; j < Ncomp; ++j)
@@ -975,10 +975,10 @@ void Breakthrough::computeFirstDerivatives(std::vector<double> &dqdt, std::vecto
 
       for (size_t j = 0; j < Ncomp; ++j)
     {
-      dqdt[i * Ncomp + j] = (components[j].Kl * relLeft + components[j].Kl1 * relRight)* (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
+      dqdt[i * Ncomp + j] = (components[j].Kl)* (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
       dpdt[i * Ncomp + j] =
           (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-           (components[j].D * relLeft + components[j].D1 * relRight) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
+           (components[j].D ) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
           prefactorLeftGP[j] * Tmp[i] * (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]) + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i-1]) * idx + (p[i * Ncomp + j] / Tmp[i]) * DTdt[i]; // term_T added
     }
   }
@@ -1006,10 +1006,10 @@ void Breakthrough::computeFirstDerivatives(std::vector<double> &dqdt, std::vecto
 
       for (size_t j = 0; j < Ncomp; ++j)
     {
-      dqdt[i * Ncomp + j] = (components[j].Kl * relRight + components[j].Kl1 * relLeft)* (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+      dqdt[i * Ncomp + j] = (components[j].Kl1)* (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
       dpdt[i * Ncomp + j] =
           (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-          (components[j].D * relRight + components[j].D1 * relLeft) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
+          (components[j].D1) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
           prefactorRightGP[j] * Tmp[i] * (q_eq[i * Ncomp + j] - q[i * Ncomp + j]) + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i-1]) * idx + (p[i * Ncomp + j] / Tmp[i]) * DTdt[i]; // term_T added
     }
   }
@@ -1278,7 +1278,7 @@ void Breakthrough::computeVelocity()
     {
       sum =
           sum - prefactorLeftGP[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D * relLeft + components[j].D1 * relRight) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+           (components[j].D1) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
 
     // explicit version
@@ -1293,7 +1293,7 @@ void Breakthrough::computeVelocity()
     {
       sum =
           sum - prefactorRightGP[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D * relRight + components[j].D1 * relLeft) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+           (components[j].D1 ) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
 
     // explicit version
@@ -1376,7 +1376,7 @@ void Breakthrough::computeVelocityTemperatureLight()
     {
       sum =
           sum - prefactorLeftGP[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D * relLeft + components[j].D1 * relRight) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+           (components[j].D ) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
@@ -1391,7 +1391,7 @@ void Breakthrough::computeVelocityTemperatureLight()
     {
       sum =
           sum - prefactorRightGP[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D * relRight + components[j].D1 * relLeft) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+            (components[j].D1 ) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
@@ -2116,12 +2116,11 @@ void Breakthrough::createMovieScriptColumnQ()
          << " kPa'\n";
   stream << "stats 'column.data' nooutput\n";
   stream << "max = 0.0;\n";
-  stream << "do for [i=4:STATS_columns:6] {\n";
-  stream << "  stats 'column.data' us i nooutput\n";
-  stream << "  if (max<STATS_max) {\n";
-  stream << "    max=STATS_max\n";
-  stream << "  }\n";
-  stream << "}\n";
+  for (size_t i = 0; i < Ncomp; i++) {
+    int col = 4 + static_cast<int>(i) * 6;
+    stream << "  stats 'column.data' us " << col << " nooutput\n";
+    stream << "  if (max < STATS_max) { max = STATS_max; }\n";
+  }
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";
@@ -2194,12 +2193,11 @@ void Breakthrough::createMovieScriptColumnQeq()
          << " kPa'\n";
   stream << "stats 'column.data' nooutput\n";
   stream << "max = 0.0;\n";
-  stream << "do for [i=5:STATS_columns:6] {\n";
-  stream << "  stats 'column.data' us i nooutput\n";
-  stream << "  if (max<STATS_max) {\n";
-  stream << "    max=STATS_max\n";
-  stream << "  }\n";
-  stream << "}\n";
+  for (size_t i = 0; i < Ncomp; i++) {
+    int col = 5 + static_cast<int>(i) * 6;
+    stream << "  stats 'column.data' us " << col << " nooutput\n";
+    stream << "  if (max < STATS_max) { max = STATS_max; }\n";
+  }
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";

@@ -300,7 +300,7 @@ struct Pressurization
    *
    * Updates the velocities (light version) based on current pressures and adsorption amounts with T influence.
    */
-  void computeVelocityTemperatureLight(const std::vector<double>& current_dpdt);
+  void computeVelocityTemperatureLight(const std::vector<double>& current_dpdt, const std::vector<double>& current_dTdt);
   /**
    * \brief Computes Molar Mass mixture along the column.
    *
