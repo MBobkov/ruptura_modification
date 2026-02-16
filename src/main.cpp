@@ -2,6 +2,7 @@
 
 #include "breakthrough.h"
 #include "pressurization.h"
+#include "blowdown.h"
 #include "fitting.h"
 #include "inputreader.h"
 #include "mixture_prediction.h"
@@ -39,6 +40,19 @@ int main(void)
         pressurization.createPlotScript();
         pressurization.createMovieScripts();
         pressurization.run();
+        
+        break;
+      }
+       case InputReader::SimulationType::Blowdown:
+      {
+        std::cout << "Blowdown simulation!" << std::endl;
+        Blowdown blowdown(reader);
+        
+        blowdown.print();
+        blowdown.initialize();
+        blowdown.createPlotScript();
+        blowdown.createMovieScripts();
+        blowdown.run();
         
         break;
       }

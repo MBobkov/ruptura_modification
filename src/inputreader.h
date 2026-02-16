@@ -33,7 +33,8 @@ struct InputReader
     MixturePrediction = 1,  ///< Mixture prediction simulation.
     Fitting = 2,            ///< Fitting simulation.
     Test = 3,                ///< Test simulation.
-    Pressurization = 4
+    Pressurization = 4,
+    Blowdown = 5
   };
 
   std::vector<Component> components;  ///< The list of components involved in the simulation.

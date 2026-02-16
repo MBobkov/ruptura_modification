@@ -43,6 +43,7 @@ set(CXX_COMPILE_FLAGS
 set(SOURCES
     src/breakthrough.cpp
     src/pressurization.cpp
+    src/blowdown.cpp
     src/component.cpp
     src/fitting.cpp
     src/inputreader.cpp
