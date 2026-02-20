@@ -175,6 +175,11 @@ InputReader::InputReader(const std::string fileName) : components()
             simulationType = SimulationType::Pressurization;
             continue;
           }
+          if (caseInSensStringCompare(str, "BlowDown"))
+          {
+            simulationType = SimulationType::Blowdown;
+            continue;
+          }
           if (caseInSensStringCompare(str, "MixturePrediction"))
           {
             simulationType = SimulationType::MixturePrediction;
@@ -319,6 +324,18 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->RampTime = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "TotalPressureInit"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->TotalPressureInit = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "TotalPressureFinal"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->TotalPressureFinal = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "Pmin"))

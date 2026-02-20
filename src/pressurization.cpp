@@ -320,8 +320,8 @@ void Pressurization::initialize()
   // 1. Префакторы (Mass Transfer Coefficients)
   for (size_t j = 0; j < Ncomp; ++j) {
     prefactorLeft[j] = R * ((1.0 - epsilon) / epsilon) * rho_p * components[j].Kl;
-    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p*relLeft + rho_p1*relRight ) * ( components[j].Kl*relLeft + components[j].Kl1*relRight );
-    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p*relRight + rho_p1*relLeft ) * ( components[j].Kl*relRight + components[j].Kl1*relLeft );
+    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p) * ( components[j].Kl);
+    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p1 ) * ( components[j].Kl1 );
     prefactorRight[j] = R * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1; 
   }
 
@@ -970,7 +970,7 @@ void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vec
         //double dVdz = (v[i] - v[i-1]) * idx; 
         //double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
 
-        double WorkExpansion = dPtdt_local * 0;
+        double WorkExpansion = dPtdt_local;
 
         double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
                          - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
@@ -1023,7 +1023,7 @@ void Pressurization::computeFirstDerivatives(std::vector<double> &dqdt, std::vec
         
         // B. Считаем dTdt
         //double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx * 0; 
-        double WorkExpansion = dPtdt_local * 0; 
+        double WorkExpansion = dPtdt_local; 
 
         double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
                          - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx * 0 // dTdz = 0; Ngrid
@@ -1392,6 +1392,8 @@ void Pressurization::computeVelocityTemperatureLight(const std::vector<double>& 
         
         // Vnew[i+1] уже рассчитан на предыдущей итерации цикла (или это стена 0.0)
         Vnew[i] = Vnew[i + 1] + total_demand * dx;
+
+        //std::cout << Vnew[i] << " " << i << " " << term_Accumulation << std::endl;
     }
         //Vnew[Ngrid - 1] = Vnew[Ngrid - 2];
 }

@@ -52,7 +52,9 @@ struct InputReader
   double columnVoidFraction{0.4};                               ///< The void fraction of the column.
   double columnVoidFraction_1{0.4};                               ///< The void fraction of the column.
   double RampTime{1};                               ///< The void fraction of the column.
-  double Pmin{1e5};                               ///< The void fraction of the column.
+  double Pmin{1e5};
+  double TotalPressureInit            {1e6};                               ///< The void fraction of the column.
+  double TotalPressureFinal            {1e5};                               ///< The void fraction of the column.
 
   double Cps{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]
   double Cps_1{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]

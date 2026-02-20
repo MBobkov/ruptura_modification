@@ -165,7 +165,9 @@ struct Blowdown
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
   double ramp_time;
-  double Pmin;
+  double TotalPressureInit;
+  double TotalPressureFinal;
+  //double Pmin;
   
   
   

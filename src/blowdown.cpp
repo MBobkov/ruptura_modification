@@ -70,7 +70,7 @@ Blowdown::Blowdown(const InputReader &inputReader)
       writeEvery(inputReader.writeEvery),
       T(inputReader.temperature),
       Tamb(inputReader.Tamb),
-      p_total(inputReader.totalPressure),
+      p_total(inputReader.TotalPressureInit),
       dptdx(inputReader.pressureGradient),
       epsilon(inputReader.columnVoidFraction),
       epsilon1(inputReader.columnVoidFraction_1),
@@ -90,7 +90,8 @@ Blowdown::Blowdown(const InputReader &inputReader)
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
       ramp_time(inputReader.RampTime),
-      Pmin(inputReader.Pmin),
+      TotalPressureInit(inputReader.TotalPressureInit),
+      TotalPressureFinal(inputReader.TotalPressureFinal),
       v_in(inputReader.columnEntranceVelocity),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
@@ -320,8 +321,8 @@ void Blowdown::initialize()
   // 1. Префакторы (Mass Transfer Coefficients)
   for (size_t j = 0; j < Ncomp; ++j) {
     prefactorLeft[j] = R * ((1.0 - epsilon) / epsilon) * rho_p * components[j].Kl;
-    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p*relLeft + rho_p1*relRight ) * ( components[j].Kl*relLeft + components[j].Kl1*relRight );
-    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p*relRight + rho_p1*relLeft ) * ( components[j].Kl*relRight + components[j].Kl1*relLeft );
+    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p ) * ( components[j].Kl );
+    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p1 ) * ( components[j].Kl1 );
     prefactorRight[j] = R * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1; 
   }
 
@@ -347,13 +348,13 @@ void Blowdown::initialize()
   
   if (CarrierGasExistance) {
       for (size_t i = 0; i < Ngrid + 1; ++i) {
-        P[i * Ncomp + carrierGasComponent] = Pmin; // 100000 Pa
-        Pnew[i * Ncomp + carrierGasComponent] = Pmin;
+        P[i * Ncomp + carrierGasComponent] = TotalPressureInit; // 100000 Pa
+        Pnew[i * Ncomp + carrierGasComponent] = TotalPressureInit;
       }
   } else {
     for (size_t i = 0; i < Ngrid + 1; ++i) {
-        P[i * Ncomp + 0] = Pmin;       
-        Pnew[i * Ncomp + 0] = Pmin;
+        P[i * Ncomp + 0] = TotalPressureInit;       
+        Pnew[i * Ncomp + 0] = TotalPressureInit;
     }
   }
 
@@ -630,7 +631,7 @@ void Blowdown::computeStep(size_t step)
         bool flag = false;
 
         for (size_t i=0; i < Ngrid + 1; i++) {
-          if (Pt[i] >= p_total * 0.99) flag = true;
+          if (Pt[i] < TotalPressureFinal * 1.0001) flag = true;
           else 
           {
             flag = false;
@@ -656,8 +657,8 @@ void Blowdown::computeStep(size_t step)
     // 1. ГРАНИЧНЫЕ УСЛОВИЯ (RAMP)
     // ------------------------------------------------------------------
     // Рассчитываем целевое давление на текущий момент времени
-    double target_pressure = p_total;
-    double initial_pressure = Pmin;
+    double target_pressure = TotalPressureFinal;
+    double initial_pressure = TotalPressureInit;
 
     double current_P_in;
     if (t < ramp_time) {
@@ -666,18 +667,21 @@ void Blowdown::computeStep(size_t step)
         current_P_in = target_pressure;
     }
 
+    //current_P_in *= 0;
+
     // Применяем давление к граничной точке (i=0)
     // Обновляем И P (старый слой), И Pnew (новый слой), чтобы они были синхронны
-    Pt[0] = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
-        double p_val = current_P_in * components[j].Yi0;
+        double p_val = current_P_in * P[Ngrid * Ncomp + j] / Pt[Ngrid];
         
-        P[0 * Ncomp + j] = p_val;
-        Pnew[0 * Ncomp + j] = p_val; 
+        P[Ngrid * Ncomp + j] = p_val;
+        Pnew[Ngrid * Ncomp + j] = p_val; 
         
-        Pt[0] += p_val;
     }
+    Pt[Ngrid] = 0.0;
+    for (size_t j = 0; j < Ncomp; ++j) Pt[Ngrid] += P[Ngrid * Ncomp + j];
+    
 
     // ------------------------------------------------------------------
     // 2. ОБНОВЛЕНИЕ ТЕРМОДИНАМИКИ (КРИТИЧЕСКИЙ МОМЕНТ)
@@ -876,10 +880,10 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
     // 0. РАСЧЕТ ПРОИЗВОДНОЙ ДАВЛЕНИЯ НА ВХОДЕ (RAMP)
     // =========================================================
     
-    // Считаем текущее давление на входе (сумма парциальных)
+    // Считаем текущее давление на выходе (сумма парциальных)
     double Pt_inlet = 0.0;
     for (size_t j = 0; j < Ncomp; ++j) {
-        Pt_inlet += p[0 * Ncomp + j];
+        Pt_inlet += p[Ngrid * Ncomp + j];
     }
 
     double ramp_duration = ramp_time; // Время открытия клапана
@@ -888,36 +892,33 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
     // Если текущее давление меньше целевого (с небольшим запасом на погрешность double),
     // значит мы все еще в стадии Ramp (подъема).
     // Производная линейной функции: (P_end - P_start) / time
-    if (Pt_inlet < p_total * 0.99999) {
-        global_dPdt = (p_total - Pmin) / ramp_duration;
+    if (Pt_inlet > TotalPressureFinal * 1.00001) {
+        global_dPdt = (TotalPressureFinal - TotalPressureInit) / ramp_duration;
     } else {
         // Мы вышли на плато, давление постоянно
         global_dPdt = 0.0;
     }
 
     // =========================================================
-    // 1. ГРАНИЧНАЯ ТОЧКА (Вход i=0)
+    // 1. ГРАНИЧНАЯ ТОЧКА (Выход i=Ngrid)
     // =========================================================
     if (indexLeft == 0) {
         for (size_t j = 0; j < Ncomp; ++j) {
-            dqdt[0 * Ncomp + j] = components[j].Kl1 * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
+            dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
             
             // ЧЕСТНЫЙ РАСЧЕТ DPDT:
             // Парциальная производная = Yi0 * Полная производная
-            dpdt[0 * Ncomp + j] = global_dPdt * components[j].Yi0;
-            dTdt[0] = 0.0;             // T_in фиксировано
-            dTdtWall[0] = 0.0;
+            dpdt[Ngrid * Ncomp + j] = global_dPdt * p[Ngrid * Ncomp + j] / Pt_inlet;
+
         }
     } else {
         // Если вдруг вход попадает во второй слой (редкий кейс, но поддерживаем)
          for (size_t j = 0; j < Ncomp; ++j) {
-            dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq1[0 * Ncomp + j] - q[0 * Ncomp + j]);
+            dqdt[Ngrid * Ncomp + j] = components[j].Kl * (q_eq1[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
             
             // ЧЕСТНЫЙ РАСЧЕТ DPDT:
-            dpdt[0 * Ncomp + j] = global_dPdt * components[j].Yi0;
+            dpdt[Ngrid * Ncomp + j] = global_dPdt * p[Ngrid * Ncomp + j] / Pt_inlet;
             
-            dTdt[0] = 0.0;
-            dTdtWall[0] = 0.0;
         }
     }
 
@@ -946,12 +947,14 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
             double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
             
             dpdt[i * Ncomp + j] = 
-                  (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
+                  (v[i] * p[(i) * Ncomp + j] - v[i + 1] * p[(i + 1) * Ncomp + j]) * idx 
                 + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
                 - prefactorRight[j] * Tmp[i] * driving_force 
-                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx;
+                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i + 1] - Tmp[i]) * idx;
                 //+ (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
         }
+
+        //if (i == Ngrid - 1) std::cout << (v[i] * p[(i) * Ncomp + 0] - v[i + 1] * p[(i + 1) * Ncomp + 0]) << " " << v[i] << " " << v[i + 1]  << std::endl;
         
         double dPtdt_local = 0;
         for (size_t j = 0; j < Ncomp; ++j) dPtdt_local += dpdt[i * Ncomp + j];
@@ -970,10 +973,10 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
         //double dVdz = (v[i] - v[i-1]) * idx; 
         //double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
 
-        double WorkExpansion = dPtdt_local * 0;
+        double WorkExpansion = dPtdt_local;
 
         double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                         - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
+                         - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i + 1] - Tmp[i]) * idx 
                          + (1.0 - current_epsilon) * current_rhop * sumH 
                          - 4.0 * current_h_in * (Tmp[i] - Tw[i]) / D_column_inner
                          + current_epsilon * WorkExpansion;
@@ -992,9 +995,9 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
         dTdtWall[i] = (4 * D_column_inner * current_h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                     + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
     }
-
+    
     // =========================================================
-    // 3. ПОСЛЕДНЯЯ ТОЧКА (i = Ngrid)
+    // 3. ПЕРВАЯ ТОЧКА (i = 0)
     // =========================================================
     {
         double sumH = 0.0;
@@ -1002,245 +1005,100 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
 
         // A. Сначала q и H (чтобы найти dTdt)
         for (size_t j = 0; j < Ncomp; ++j) {
-             double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * driving_force;
+             double driving_force = (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
+             dqdt[0 * Ncomp + j] = components[j].Kl1 * driving_force;
              sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
         }
 
          for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
+            double driving_force = (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
             
-            dpdt[Ngrid * Ncomp + j] = 
-                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx 
-                + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[Ngrid] * driving_force 
-                + (v[Ngrid] * p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx;
-                //+ (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
+            dpdt[0 * Ncomp + j] = 
+                  (v[0] * p[0 * Ncomp + j] - v[1] * p[1 * Ncomp + j]) * idx 
+                + components[j].D1 * (p[0 * Ncomp + j] - p[1 * Ncomp + j]) * idx2 
+                - prefactorRight[j] * Tmp[0] * driving_force 
+                + (v[0] * p[0 * Ncomp + j] / Tmp[0]) * (Tmp[1] - Tmp[0]) * idx * 0 //BC
+                + (p[0 * Ncomp + j] / Tmp[0]) * dTdt[0];
+        }
+
+        double dPtdt_local = 0;
+        for (size_t j = 0; j < Ncomp; ++j) dPtdt_local += dpdt[0 * Ncomp + j];
+        
+        // B. Считаем dTdt
+        //double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx * 0; 
+        double WorkExpansion = dPtdt_local; 
+
+        double Numerator = lambda_ax_1 * (Tmp[0] - Tmp[1]) * idx2 
+                         - (Pt[0] / (R * Tmp[0])) * Cpg_mix[0] * v[0] * (Tmp[1] - Tmp[0]) * idx * 0 // dTdz = 0; Ngrid
+                         + (1 - epsilon1) * rho_p1 * sumH 
+                         - 4 * h_in_1 * (Tmp[0] - Tw[0]) / D_column_inner
+                         + epsilon1 * WorkExpansion;
+
+        double DenomTerm = (Pt[0] / (R * Tmp[0])) * epsilon1 * Cpg_mix[0] 
+                         + (1 - epsilon1) * rho_p1 * Cps_1;
+        
+        dTdt[0] = Numerator / DenomTerm;
+
+        for (size_t j = 0; j < Ncomp; ++j) dpdt[0 * Ncomp + j] += (p[0 * Ncomp + j] / Tmp[0]) * dTdt[0];
+
+        dTdtWall[0] = (4 * D_column_inner * h_in_1 * (Tmp[0] - TmpWall[0]) - 4 * D_column_out * h_out * (TmpWall[0] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+                        + lambda_w * (TmpWall[0] - TmpWall[1]) * idx2 / (rho_wall * Cpw);
+    }
+
+    // Считаем тепературу i=Ngrid
+
+    {   
+        double sumH = 0.0;      
+        double C_adsorbed_total = 0.0; 
+
+        for (size_t j = 0; j < Ncomp; ++j) {
+          double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
+          dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * driving_force;
+          sumH += components[j].dH1 * components[j].Kl1 * driving_force;
+          C_adsorbed_total += 0; 
         }
 
         double dPtdt_local = 0;
         for (size_t j = 0; j < Ncomp; ++j) dPtdt_local += dpdt[Ngrid * Ncomp + j];
         
-        // B. Считаем dTdt
-        //double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx * 0; 
-        double WorkExpansion = dPtdt_local * 0; 
 
-        double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
-                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx * 0 // dTdz = 0; Ngrid
-                         + (1 - epsilon1) * rho_p1 * sumH 
-                         - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
-                         + epsilon1 * WorkExpansion;
-
-        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] 
-                         + (1 - epsilon1) * rho_p1 * Cps_1;
-        
-        dTdt[Ngrid] = Numerator / DenomTerm;
-
-        for (size_t j = 0; j < Ncomp; ++j) dpdt[Ngrid * Ncomp + j] += (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid];
-
-        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_1 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                        + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
-    }
-}
-
-void Blowdown::computeFirstDerivatives2(
-    std::vector<double> &dqdt, 
-    std::vector<double> &dpdt, 
-    std::vector<double> &dTdt, 
-    std::vector<double> &dTdtWall,
-    const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-    const std::vector<double> &v, const std::vector<double> &p, 
-    const std::vector<double> &Tmp, std::vector<double> &TmpWall)
-{
-    double idx = 1.0 / dx;
-    double idx2 = 1.0 / (dx * dx);
-
-    // =========================================================
-    // 0. РАСЧЕТ ПРОИЗВОДНОЙ ДАВЛЕНИЯ НА ВХОДЕ (RAMP)
-    // =========================================================
-    
-    // Считаем текущее давление на входе (сумма парциальных)
-    double Pt_inlet = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j) {
-        Pt_inlet += p[0 * Ncomp + j];
-    }
-
-    double ramp_duration = ramp_time; // Время открытия клапана
-    double global_dPdt = 0.0;
-
-    // Если текущее давление меньше целевого (с небольшим запасом на погрешность double),
-    // значит мы все еще в стадии Ramp (подъема).
-    // Производная линейной функции: (P_end - P_start) / time
-    if (Pt_inlet < p_total * 0.99999) {
-        global_dPdt = (p_total - Pmin) / ramp_duration;
-    } else {
-        // Мы вышли на плато, давление постоянно
-        global_dPdt = 0.0;
-    }
-
-    // =========================================================
-    // 1. ГРАНИЧНАЯ ТОЧКА (Вход i=0)
-    // =========================================================
-    if (indexLeft == 0) {
-        for (size_t j = 0; j < Ncomp; ++j) {
-            dqdt[0 * Ncomp + j] = components[j].Kl1 * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
-            
-            // ЧЕСТНЫЙ РАСЧЕТ DPDT:
-            // Парциальная производная = Yi0 * Полная производная
-            dpdt[0 * Ncomp + j] = global_dPdt * components[j].Yi0;
-            dTdt[0] = 0.0;             // T_in фиксировано
-            dTdtWall[0] = 0.0;
-        }
-    } else {
-        // Если вдруг вход попадает во второй слой (редкий кейс, но поддерживаем)
-         for (size_t j = 0; j < Ncomp; ++j) {
-            dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq1[0 * Ncomp + j] - q[0 * Ncomp + j]);
-            
-            // ЧЕСТНЫЙ РАСЧЕТ DPDT:
-            dpdt[0 * Ncomp + j] = global_dPdt * components[j].Yi0;
-            
-            dTdt[0] = 0.0;
-            dTdtWall[0] = 0.0;
-        }
-    }
-
-    // =========================================================
-    // 2. ВНУТРЕННИЕ ТОЧКИ (Цикл по пространству)
-    // =========================================================
-    for (size_t i = 1; i < Ngrid; i++)
-    {
-        double sumH = 0.0;      
-        double C_adsorbed_total = 0.0; 
-
-        // -----------------------------------------------------
-        // ШАГ A: Расчет dqdt и тепла адсорбции (sumH)
-        // -----------------------------------------------------
-        // Логика выбора слоя (Left / Interface / Right)
-        if (i <= indexLeft) { 
-             // LAYER 0
-             for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-                dqdt[i * Ncomp + j] = components[j].Kl * driving_force;
-                sumH += components[j].dH * components[j].Kl * driving_force;
-                C_adsorbed_total += 0; // q[...] * Cpg если нужно
-             }
-        } else {
-             // LAYER 1
-             for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-                dqdt[i * Ncomp + j] = components[j].Kl1 * driving_force;
-                sumH += components[j].dH1 * components[j].Kl1 * driving_force;
-                C_adsorbed_total += 0; 
-             }
-        }
-
-        double current_epsilon = (i <= indexLeft) ? epsilon : epsilon1;
-        double current_rhop = (i <= indexLeft) ? rho_p : rho_p1;
-        double current_Cps = (i <= indexLeft) ? Cps : Cps_1;
-        double current_lambda_ax = (i <= indexLeft) ? lambda_ax : lambda_ax_1;
-        double current_h_in = (i <= indexLeft) ? h_in : h_in_1; 
+        double current_epsilon = epsilon1;
+        double current_rhop = rho_p1;
+        double current_Cps = Cps_1;
+        double current_lambda_ax = lambda_ax_1;
+        double current_h_in = h_in_1; 
 
         // -----------------------------------------------------
         // ШАГ B: Расчет dTdt (Температуры)
         // -----------------------------------------------------
         
-        double dVdz = (v[i] - v[i-1]) * idx; 
-        double WorkExpansion = Pt[i] * dVdz; // Включаем, если Cv
+        //double dVdz = (v[i] - v[i-1]) * idx; 
+        //double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
 
-        double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                         - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
+        double WorkExpansion = dPtdt_local;
+
+        double Numerator = current_lambda_ax * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 * 0 // bc 
+                         - current_epsilon * (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx * 0 // bc 
                          + (1.0 - current_epsilon) * current_rhop * sumH 
-                         - 4.0 * current_h_in * (Tmp[i] - Tw[i]) / D_column_inner
-                         - current_epsilon * WorkExpansion;
+                         - 4.0 * current_h_in * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
+                         + current_epsilon * WorkExpansion;
 
-        double DenomTerm = (Pt[i] / (R * Tmp[i])) * current_epsilon * Cpg_mix[i] 
+        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * current_epsilon * Cpg_mix[Ngrid] 
                          + (1.0 - current_epsilon) * current_rhop * (current_Cps + C_adsorbed_total);
-        
-        dTdt[i] = Numerator / DenomTerm;
-
-        // -----------------------------------------------------
-        // ШАГ C: Расчет dpdt (Давления) - ТЕПЕРЬ СРАЗУ
-        // -----------------------------------------------------
-        
-        if (i <= indexLeft) {
-            // LAYER 0
-            for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-                
-                // Полная формула сразу:
-                dpdt[i * Ncomp + j] = 
-                      (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                    + components[j].D * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                    - prefactorLeft[j] * Tmp[i] * driving_force 
-                    + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                    + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
-            }
-        } else {
-            // LAYER 1
-            for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-                
-                dpdt[i * Ncomp + j] = 
-                      (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                    + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                    - prefactorRight[j] * Tmp[i] * driving_force 
-                    + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                    + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
-            }
-        }
-
-        // Стена
-        dTdtWall[i] = (4 * D_column_inner * current_h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                    + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
-    }
-
-    // =========================================================
-    // 3. ПОСЛЕДНЯЯ ТОЧКА (i = Ngrid)
-    // =========================================================
-    {
-        double sumH = 0.0;
-        //double C_adsorbed_total = 0.0;
-
-        // A. Сначала q и H (чтобы найти dTdt)
-        for (size_t j = 0; j < Ncomp; ++j) {
-             double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * driving_force;
-             sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
-        }
-
-        // B. Считаем dTdt
-        double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx; 
-        double WorkExpansion = Pt[Ngrid] * dVdz * 0; 
-
-        double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
-                         - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
-                         + (1 - epsilon1) * rho_p1 * sumH 
-                         - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
-                         - epsilon1 * WorkExpansion;
-
-        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] 
-                         + (1 - epsilon1) * rho_p1 * Cps_1;
         
         dTdt[Ngrid] = Numerator / DenomTerm;
 
-        // C. Считаем dpdt СРАЗУ
-        for (size_t j = 0; j < Ncomp; ++j) {
-             double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             
-             dpdt[Ngrid * Ncomp + j] = 
-                  (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx
-                + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[Ngrid] * driving_force
-                + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
-        }
+        // -----------------------------------------------------
+        // ШАГ C: Расчет dpdt (Давления) - ТЕПЕРЬ СРАЗУ
+        // -----------------------
+        for (size_t j = 0; j < Ncomp; ++j) dpdt[Ngrid * Ncomp + j] += (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid];
 
-        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_1 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                        + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
+        // Стена
+        dTdtWall[Ngrid] = (4 * D_column_inner * current_h_in * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+                    + 0 * lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw); // bc
+
     }
 }
-
-
-
 
 // calculate new velocity Vnew from Qnew, Qeqnew, Pnew, Pt
 void Blowdown::computeVelocity()
@@ -1343,66 +1201,11 @@ void Blowdown::computeCpgMix(std::vector<double> &Pi) {
 
 void Blowdown::computeVelocityTemperatureLight(const std::vector<double>& current_dpdt, const std::vector<double>& current_dTdt)
 {
-  // 1. Граничное условие: Тупик на ПРАВОЙ границе.
-    // Если Ngrid - это количество ячеек, то граней Ngrid + 1 (от 0 до Ngrid).
-    // Vnew[Ngrid] - это скорость на глухой стенке.
 
-    // 2. Интегрирование ОТ СТЕНКИ (Ngrid) КО ВХОДУ (0)
-    // Используем цикл, который гарантированно проходит 0.
-    // Логика: i - это индекс текущей ячейки.
-    // Vnew[i+1] - скорость, выходящая из ячейки (справа), которую мы УЖЕ посчитали.
-    // Vnew[i]   - скорость, входящая в ячейку (слева), которую ИЩЕМ.
-    //Vnew[Ngrid] = 0;
+    Vnew[0] = 0;
     
     // Цикл пробежит значения i: Ngrid-1, Ngrid-2, ..., 1, 0
-    for (size_t i = Ngrid; i-- > 0; )
-    {
-        double current_Pt = Pt[i + 1];
-        if (current_Pt < 1.0) current_Pt = 1.0; 
-        
-        double current_T = Tgsnew[i + 1];
-
-        double sum_sorption = 0.0;
-        const double idx2 = 1.0 / (dx * dx);
-        
-        
-        // --- A. Слагаемое сжатия (Accumulation: 1/P * dP/dt) ---
-        double dPt_dt_local = 0.0;
-        for (size_t j = 0; j < Ncomp; ++j) {
-            dPt_dt_local += current_dpdt[i * Ncomp + j];
-        }
-
-        //if (i == Ngrid - 1) std::cout << dPt_dt_local << std::endl;
-
-        for (size_t j = 0; j < Ncomp; ++j) {
-                 // Здесь ваша логика для правой границы
-                 sum_sorption += prefactorRight[j] * current_T * (Qeqnew[(i + 1) * Ncomp + j] - Qnew[(i + 1) * Ncomp + j]) +
-                        components[j].D1 * (Pnew[(i) * Ncomp + j] - Pnew[(i + 1) * Ncomp + j]) * idx2; 
-            }
-
-        double term_Accumulation = (1.0 / current_Pt) * dPt_dt_local;
-
-        double dPdz = (Pt[i + 1] - Pt[i]) / dx;
-
-       //std::cout << sum_sorption << std::endl;
-
-        double thermal_expansion = Vnew[i] * (Tgsnew[i + 1] - Tgsnew[i]) / (Tgsnew[i + 1] * dx);
-        
-        double total_demand = term_Accumulation + (1.0 / current_Pt) * Vnew[i + 1] * dPdz + (1.0 / current_Pt) * sum_sorption - thermal_expansion - (current_dTdt[i + 1] / Tgsnew[i + 1]);
-        
-        // Vnew[i+1] уже рассчитан на предыдущей итерации цикла (или это стена 0.0)
-        Vnew[i] = Vnew[i + 1] + total_demand * dx;
-    }
-        //Vnew[Ngrid - 1] = Vnew[Ngrid - 2];
-}
-
-void Blowdown::computeVelocityTemperature(const std::vector<double>& current_dpdt)
-{
-     // Цикл пробежит значения i: Ngrid-1, Ngrid-2, ..., 1, 0
-
-    Vnew[0] = v_in;
-
-    for (size_t i = 0; i < Ngrid + 1 ; i++)
+    for (size_t i = 1; i < Ngrid + 1; ++i)
     {
         double current_Pt = Pt[i];
         if (current_Pt < 1.0) current_Pt = 1.0; 
@@ -1429,16 +1232,29 @@ void Blowdown::computeVelocityTemperature(const std::vector<double>& current_dpd
 
         double term_Accumulation = (1.0 / current_Pt) * dPt_dt_local;
 
-        double dPdz = (Pt[i + 1] - Pt[i]) / dx;
+        //double dPdz;
+
+        double dPdz;
+        dPdz = (Pt[i] - Pt[i - 1]) / dx;
+        
+
+        //dPdz = (Pt[i] - Pt[i-1]) / dx;   // левая разность для i = Ngrid
+
 
        //std::cout << sum_sorption << std::endl;
+
+        double thermal_expansion = Vnew[i] * (Tgsnew[i] - Tgsnew[i - 1]) / (Tgsnew[i] * dx);
+
+        double total_demand;
         
-        double total_demand = term_Accumulation + (1.0 / current_Pt) * Vnew[i] * dPdz + (1.0 / current_Pt) * sum_sorption;
+
+        total_demand = term_Accumulation + (1.0 / current_Pt) * Vnew[i - 1] * dPdz + (1.0 / current_Pt) * sum_sorption - thermal_expansion - (current_dTdt[i] / Tgsnew[i]);
+        Vnew[i] = Vnew[i - 1] - total_demand * dx;
         
-        // Vnew[i+1] уже рассчитан на предыдущей итерации цикла (или это стена 0.0)
-        Vnew[i + 1] = Vnew[i] - total_demand * dx;
     }
+
 }
+
 
 void Blowdown::print() const { std::cout << repr(); }
 
@@ -1462,7 +1278,8 @@ std::string Blowdown::repr() const
   s += "Pressure gradient:                     " + std::to_string(dptdx) + " [Pa/m]\n";
   s += "Column entrance interstitial velocity: " + std::to_string(v_in) + " [m/s]\n";
   s += "Ramp Time for pressure: " + std::to_string(ramp_time) + " [s]\n";
-  s += "Pressure minimum: " + std::to_string(Pmin) + " [Pa]\n";
+  s += "Initial pressure: " + std::to_string(TotalPressureInit) + " [Pa]\n";
+  s += "Final pressure: " + std::to_string(TotalPressureFinal) + " [Pa]\n";
   s += "\n\n";
 
   s += "Pressurezation settings\n";
