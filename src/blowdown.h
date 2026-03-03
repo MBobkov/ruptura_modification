@@ -167,6 +167,9 @@ struct Blowdown
   double ramp_time;
   double TotalPressureInit;
   double TotalPressureFinal;
+  std::vector<double> v_damp_;      // локальные множители скорости (0..1)
+  std::vector<char>   v_reached_;   // флаг: точка уже дошла до Pfinal
+  bool v_damp_initialized_ = false;
   //double Pmin;
   
   
@@ -359,6 +362,11 @@ struct Blowdown
    * \brief Creates a script to generate a movie for the normalized partial pressures.
    */
   void createMovieScriptColumnPnormalized();
+   /**
+   * \brief Recieving Data.
+   */
+
+  void initVelocityDamping();
 
 };
 

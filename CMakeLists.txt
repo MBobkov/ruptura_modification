@@ -44,6 +44,7 @@ set(SOURCES
     src/breakthrough.cpp
     src/pressurization.cpp
     src/blowdown.cpp
+    src/DataReader.cpp
     src/component.cpp
     src/fitting.cpp
     src/inputreader.cpp

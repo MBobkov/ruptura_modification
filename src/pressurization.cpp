@@ -402,8 +402,8 @@ void Pressurization::initialize()
                                               &cachedPsi1[i * maxIsothermTerms1], Tgs[i]);
 
     for (size_t j = 0; j < Ncomp; ++j) {
-      Qeq1[i * Ncomp + j] = Ni[j];
-      Qeqnew1[i * Ncomp + j] = Ni[j];
+      Qeq1[i * Ncomp + j] = Ni1[j];
+      Qeqnew1[i * Ncomp + j] = Ni1[j];
     }
   }
 }

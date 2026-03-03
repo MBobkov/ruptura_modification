@@ -134,7 +134,8 @@ std::pair<size_t, size_t> MixturePrediction::predictMixture(size_t site, const s
     sumYi += Yi[i];
   }
   if (std::abs(sumYi - 1.0) > 1e-15)
-  {
+  { 
+    std::cout << "Error! " << site << std::endl;
     printErrorStatus(0.0, sumYi, P, Yi, cachedP0);
     throw std::runtime_error("Error (IAST): sum Yi at IAST start not unity\n");
   }
