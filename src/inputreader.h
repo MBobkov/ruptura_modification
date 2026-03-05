@@ -34,7 +34,8 @@ struct InputReader
     Fitting = 2,            ///< Fitting simulation.
     Test = 3,                ///< Test simulation.
     Pressurization = 4,
-    Blowdown = 5
+    Blowdown = 5,
+    Purge = 6
   };
 
   std::vector<Component> components;  ///< The list of components involved in the simulation.

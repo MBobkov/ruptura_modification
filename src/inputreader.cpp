@@ -180,6 +180,11 @@ InputReader::InputReader(const std::string fileName) : components()
             simulationType = SimulationType::Blowdown;
             continue;
           }
+          if (caseInSensStringCompare(str, "Purge"))
+          {
+            simulationType = SimulationType::Purge;
+            continue;
+          }
           if (caseInSensStringCompare(str, "MixturePrediction"))
           {
             simulationType = SimulationType::MixturePrediction;
