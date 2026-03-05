@@ -89,6 +89,7 @@ Purge::Purge(const InputReader &inputReader)
       Cps_1(inputReader.Cps_1),
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
+      timeStage(inputReader.TimeStage),
       v_in(inputReader.columnEntranceVelocity),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
@@ -658,6 +659,12 @@ void Purge::computeStep(size_t step)
     {
       std::cout << "\nConvergence criteria reached, running 10% longer\n\n" << std::endl;
       Nsteps = static_cast<size_t>(1.1 * static_cast<double>(step));
+      autoSteps = false;
+    }
+    if (t > timeStage)
+    {
+      std::cout << "\nTime stage is over!\n\n" << std::endl;
+      Nsteps = static_cast<size_t>(1.0 * static_cast<double>(step));
       autoSteps = false;
     }
   }

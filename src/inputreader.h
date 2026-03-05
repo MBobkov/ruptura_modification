@@ -35,7 +35,8 @@ struct InputReader
     Test = 3,                ///< Test simulation.
     Pressurization = 4,
     Blowdown = 5,
-    Purge = 6
+    Purge = 6,
+    Adsorption = 7
   };
 
   std::vector<Component> components;  ///< The list of components involved in the simulation.
@@ -56,6 +57,7 @@ struct InputReader
   double Pmin{1e5};
   double TotalPressureInit            {1e6};                               ///< The void fraction of the column.
   double TotalPressureFinal            {1e5};                               ///< The void fraction of the column.
+  double TimeStage{100};
 
   double Cps{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]
   double Cps_1{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]

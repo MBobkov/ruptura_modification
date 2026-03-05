@@ -78,8 +78,8 @@ bool loadStateFromFile(const std::string& filename,
         // Если компонентов больше, можно добавить аналогично, но формат не предусматривает.
 
         // Температуры
-        T[i]  = row[15]; // Tgs
-        Tw[i] = row[16]; // Tw
+        T[i]  = 295; //row[15]; // Tgs
+        Tw[i] = 295; //row[16]; // Tw
 
         //std::cout << i << " " << P[i * Ncomp + 1] << std::endl;
     }

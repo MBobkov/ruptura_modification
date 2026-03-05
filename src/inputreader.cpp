@@ -175,6 +175,11 @@ InputReader::InputReader(const std::string fileName) : components()
             simulationType = SimulationType::Pressurization;
             continue;
           }
+          if (caseInSensStringCompare(str, "Adsorption"))
+          {
+            simulationType = SimulationType::Adsorption;
+            continue;
+          }
           if (caseInSensStringCompare(str, "BlowDown"))
           {
             simulationType = SimulationType::Blowdown;
@@ -299,6 +304,12 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->lambda_ax_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "StageTime"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->TimeStage = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "Lambda_w"))

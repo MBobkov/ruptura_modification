@@ -20,7 +20,7 @@ namespace py = pybind11;
  * simulation parameters, computation of time steps, and generation of output scripts
  * for plotting and visualization.
  */
-struct Purge
+struct Adsorption
 {
  public:
   /**
@@ -30,7 +30,7 @@ struct Purge
    *
    * \param inputreader Reference to an InputReader containing simulation parameters.
    */
-  Purge(const InputReader &inputreader);
+  Adsorption(const InputReader &inputreader);
 
   /**
    * \brief Constructs a Breakthrough simulation with specified parameters.
@@ -57,7 +57,7 @@ struct Purge
    * \param _pulseTime Pulse time.
    * \param _mixture MixturePrediction object for mixture predictions.
    */
-  Purge(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
+  Adsorption(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
                size_t _numberOfGridPoints, size_t _printEvery, size_t _writeEvery, double _temperature, double _p_total,
                double _columnVoidFraction, double _pressureGradient, double _particleDensity, double _particleDensity1,
                double _boundary_len, double _columnEntranceVelocity, double _columnLength, double _timeStep, size_t _numberOfTimeSteps,

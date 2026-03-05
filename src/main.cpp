@@ -2,6 +2,7 @@
 
 #include "breakthrough.h"
 #include "pressurization.h"
+#include "adsorption.h"
 #include "blowdown.h"
 #include "purge.h"
 #include "fitting.h"
@@ -57,7 +58,7 @@ int main(void)
         
         break;
       }
-       case InputReader::SimulationType::Purge:
+      case InputReader::SimulationType::Purge:
       {
         std::cout << "Purge simulation!" << std::endl;
         Purge purge(reader);
@@ -67,6 +68,19 @@ int main(void)
         purge.createPlotScript();
         purge.createMovieScripts();
         purge.run();
+        
+        break;
+      }
+      case InputReader::SimulationType::Adsorption:
+      {
+        std::cout << "Adsorption simulation!" << std::endl;
+        Adsorption ads(reader);
+        
+        ads.print();
+        ads.initialize();
+        ads.createPlotScript();
+        ads.createMovieScripts();
+        ads.run();
         
         break;
       }

@@ -41,6 +41,7 @@ set(CXX_COMPILE_FLAGS
 
 # Collect source files
 set(SOURCES
+    src/adsorption.cpp
     src/purge.cpp
     src/breakthrough.cpp
     src/pressurization.cpp
