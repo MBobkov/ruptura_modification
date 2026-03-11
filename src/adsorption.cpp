@@ -90,10 +90,10 @@ Adsorption::Adsorption(const InputReader &inputReader)
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
       timeStage(inputReader.TimeStage),
-      v_in(inputReader.columnEntranceVelocity),
+      v_in(inputReader.columnEntranceVelocityAds),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
-      dt(inputReader.timeStep),
+      dt(inputReader.timeStepAds),
       Nsteps(inputReader.numberOfTimeSteps),
       autoSteps(inputReader.autoNumberOfTimeSteps),
       pulse(inputReader.pulseBreakthrough),
@@ -143,7 +143,8 @@ Adsorption::Adsorption(const InputReader &inputReader)
       Cpg_mix(Ngrid + 1),
       DPtdt(Ngrid + 1),
       CarrierGasExistance(inputReader.CarrierGasExistance),
-      IsothermalRegime(inputReader.IsothermalRegime)
+      IsothermalRegime(inputReader.IsothermalRegime),
+      cycle(inputReader.Cycle)
 {
 
   //std::cout << "IN CONSTRUCTOR!" << std::endl;
@@ -337,21 +338,24 @@ void Adsorption::initialize()
     prefactorRight[j] = R * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1;  // Tempreture excluded
   }
 
-  // set P and Q to zero
-  std::fill(P.begin(), P.end(), 0.0);
-  std::fill(Q.begin(), Q.end(), 0.0);
-  std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
-  std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
-  //std::fill(Tinit.begin(), Tinit.end(), Tgs[0]);   // Wall initial tempreture
-
-  // initial pressure along the column
+    // initial pressure along the column
   std::vector<double> pt_init(Ngrid + 1);
   std::vector<double> pt_init1(Ngrid + 1);
-  // set the initial total pressure along the column assuming the pressure gradient is constant
 
-  std::string fileName = "C:\\InstituteWork\\ruptura_modification_examples\\Cycles_tests\\BlowDown\\testAds.txt";
+  if (!cycle) {
+    // set P and Q to zero
+    std::fill(P.begin(), P.end(), 0.0);
+    std::fill(Q.begin(), Q.end(), 0.0);
+    std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
+    std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
+    //std::fill(Tinit.begin(), Tinit.end(), Tgs[0]);   // Wall initial tempreture
+    // set the initial total pressure along the column assuming the pressure gradient is constant
 
-  initializeFromFile(fileName, Ncomp, P, Q, Tgs, Tw);
+    std::string fileName = "C:\\InstituteWork\\ruptura_modification_examples\\Cycles_tests\\BlowDown\\testAds.txt";
+
+    initializeFromFile(fileName, Ncomp, P, Q, Tgs, Tw);
+  }
+  
 
    for (size_t i = 0; i < Ngrid + 1; ++i) {
     Pt[i] = 0;
@@ -427,7 +431,7 @@ void Adsorption::initialize()
     double sum1 = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
-      Yi1[j] = std::max(P[i * Ncomp + j] / pt_init[i], 0.0);
+      Yi1[j] = std::max(P[i * Ncomp + j] / Pt[i], 0.0);
       sum1 += Yi1[j];
     }
     for (size_t j = 0; j < Ncomp; ++j)
@@ -1353,6 +1357,19 @@ void Adsorption::computeCpgMix(std::vector<double> &Pi) {
   }  
 }
 
+std::vector<double> Adsorption::get_pressure() {
+  return P;
+}
+
+std::vector<double> Adsorption::get_q() {
+  return Q;
+}
+
+std::vector<double> Adsorption::get_T() {
+  return Tgs;
+}
+
+
 void Adsorption::computeVelocityTemperatureLight()
 {
   double idx2 = 1.0 / (dx * dx);
@@ -1769,6 +1786,84 @@ void Adsorption::createMovieScripts()
   createMovieScriptColumnDpdt();
   createMovieScriptColumnDqdt();
   createMovieScriptColumnPnormalized();
+}
+
+void Adsorption::run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream)
+{
+
+  for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
+  {
+    // compute new step
+    computeStep(step);
+    //std::cout << "step" << std::endl;
+
+    double t = static_cast<double>(step) * dt;
+
+    if (step % writeEvery == 0)
+    {
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        extStreams[j] << t * v_in / L << " " << t / 60.0 << " "
+                    << P[Ngrid * Ncomp + j] / ((Pt[Ngrid]) * components[j].Yi0) << std::endl;
+      }
+
+      for (size_t i = 0; i < Ngrid + 1; ++i)
+      {
+        extMovieStream << static_cast<double>(i) * dx << " ";
+        extMovieStream << V[i] << " ";
+        extMovieStream << Pt[i] << " ";
+        if ( indexLeft == 0 ) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i <= indexLeft && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i >= indexRight && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        extMovieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+        
+        extMovieStream << "\n";
+      }
+      extMovieStream << "\n\n";
+      
+    }
+
+
+    if (step % printEvery == 0)
+    {
+      size_t mid_index = Tgsnew.size() / 2;
+      std::cout << "Timestep " + std::to_string(step) + ", time: " + std::to_string(t) + " [s]" << std::endl;
+      std::cout << "    Average number of mixture-prediction steps: " +
+                       std::to_string(static_cast<double>(iastPerformance.first) /
+                                      static_cast<double>(iastPerformance.second))
+                << std::endl;
+      std::cout << "Current middle-point Tempreture: " + std::to_string(Tgsnew[mid_index]) << " K" << std::endl;
+    }
+  }
+
+  std::cout << "Final timestep " + std::to_string(Nsteps) +
+                   ", time: " + std::to_string(dt * static_cast<double>(Nsteps)) + " [s]"
+            << std::endl;
+  
 }
 
 // -crf 18: the range of the CRF scale is 0–51, where 0 is lossless, 23 is the default,

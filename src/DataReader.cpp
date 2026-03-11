@@ -209,3 +209,23 @@ void initializeFromFilePurge(const std::string& filename, size_t Ncomp,
         std::cerr << "Data downloading has failed!" << std::endl;
     }
 }
+
+void reverseGridData(std::vector<double>& data, size_t ncomp, size_t ngrid) {
+    using Diff = std::vector<double>::difference_type; // знаковый тип (ptrdiff_t)
+    Diff numNodes = static_cast<Diff>(ngrid) + 1;      // количество узлов
+    Diff blockSize = static_cast<Diff>(ncomp);         // размер блока на узел
+
+    std::vector<double> temp(data.size());
+
+    for (Diff i = 0; i < numNodes; ++i) {
+        Diff srcStart = i * blockSize;
+        Diff srcEnd = (i + 1) * blockSize;
+        Diff dstStart = (numNodes - 1 - i) * blockSize;
+
+        std::copy(data.begin() + srcStart,
+                  data.begin() + srcEnd,
+                  temp.begin() + dstStart);
+    }
+
+    data.swap(temp);
+}

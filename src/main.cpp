@@ -3,6 +3,7 @@
 #include "breakthrough.h"
 #include "pressurization.h"
 #include "adsorption.h"
+#include "cycle.h"
 #include "blowdown.h"
 #include "purge.h"
 #include "fitting.h"
@@ -81,6 +82,19 @@ int main(void)
         ads.createPlotScript();
         ads.createMovieScripts();
         ads.run();
+        
+        break;
+      }
+      case InputReader::SimulationType::Cycle:
+      {
+        std::cout << "Cycle simulation!" << std::endl;
+        Cycle cyc(reader);
+        
+        cyc.print();
+        cyc.initialize();
+        cyc.createPlotScript();
+        cyc.createMovieScripts();
+        cyc.run();
         
         break;
       }

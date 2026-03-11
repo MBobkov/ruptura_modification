@@ -36,7 +36,8 @@ struct InputReader
     Pressurization = 4,
     Blowdown = 5,
     Purge = 6,
-    Adsorption = 7
+    Adsorption = 7,
+    Cycle = 8
   };
 
   std::vector<Component> components;  ///< The list of components involved in the simulation.
@@ -53,7 +54,8 @@ struct InputReader
   double temperature{433.0};                                    ///< The simulation temperature in Kelvin.
   double columnVoidFraction{0.4};                               ///< The void fraction of the column.
   double columnVoidFraction_1{0.4};                               ///< The void fraction of the column.
-  double RampTime{1};                               ///< The void fraction of the column.
+  double RampTimePr{1};                               ///< The void fraction of the column.
+  double RampTimeBD{1};                               ///< The void fraction of the column.
   double Pmin{1e5};
   double TotalPressureInit            {1e6};                               ///< The void fraction of the column.
   double TotalPressureFinal            {1e5};                               ///< The void fraction of the column.
@@ -78,16 +80,23 @@ struct InputReader
   double totalPressure{1.0e6};                                  ///< The total pressure in the system in Pa.
   double pressureGradient{0.0};                                 ///< The pressure gradient in the column.
   double columnEntranceVelocity{0.1};                           ///< The entrance velocity of the column in m/s.
+  double columnEntranceVelocityAds{0.1};                           ///< The entrance velocity of the column in m/s.
+  double columnEntranceVelocityPurge{0.1};                           ///< The entrance velocity of the column in m/s.
   double columnLength{0.3};                                     ///< The length of the column in meters.
   double boundary_coord{0.15};                                  ///< The x-coord of the boundary
   bool CarrierGasExistance{false};
   bool IsothermalRegime{false};
+  bool Cycle{false};
   
   //double h_out_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
 
   size_t numberOfTimeSteps{0};       ///< The number of time steps in the simulation.
   bool autoNumberOfTimeSteps{true};  ///< Whether to automatically determine the number of time steps.
   double timeStep{0.0005};           ///< The time step size in seconds.
+  double timeStepPr{0.0005};           ///< The time step size in seconds.
+  double timeStepAds{0.0005};           ///< The time step size in seconds.
+  double timeStepBD{0.0005};           ///< The time step size in seconds.
+  double timeStepPurge{0.0005};           ///< The time step size in seconds.
   bool pulseBreakthrough{false};     ///< Whether to use pulse breakthrough mode.
   double pulseTime{0.0};             ///< The duration of the pulse in seconds.
   size_t printEvery{10000};          ///< The interval at which to print output.

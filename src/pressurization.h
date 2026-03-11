@@ -11,7 +11,7 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 #endif  // PYBUILD
-
+#pragma once
 /**
  * \brief Simulates a breakthrough process in an adsorption column.
  *
@@ -23,6 +23,7 @@ namespace py = pybind11;
 struct Pressurization
 {
  public:
+  Pressurization();
   /**
    * \brief Constructs a Breakthrough simulation using an InputReader.
    *
@@ -166,6 +167,7 @@ struct Pressurization
   double boundaryCoordinate;  ///< boundary x coord
   double ramp_time;
   double Pmin;
+  bool InitialStage{true};
   
   
   
@@ -240,6 +242,7 @@ struct Pressurization
   std::vector<double> DPtdt;
   bool CarrierGasExistance{false};
   bool IsothermalRegime{false};
+  bool cycle{false};
 
   enum class IntegrationScheme
   {
@@ -307,6 +310,9 @@ struct Pressurization
    * Calculates the molar mass mixture.
    */
   void computeCpgMix(std::vector<double> &Pi);
+  /**
+   * \brief Get data to insert in next stage.
+   */
 
   /**
    * \brief Creates a script to generate a movie for the interstitial gas velocity.
@@ -358,5 +364,26 @@ struct Pressurization
    */
   void createMovieScriptColumnPnormalized();
 
+  public:
+    std::vector<double> get_pressure();
+    /**
+     * \brief Get data to insert in next stage.
+     */
+
+    std::vector<double> get_q();
+    /**
+     * \brief Get data to insert in next stage.
+     */
+
+    std::vector<double> get_T();
+  /**
+     * \brief Change stage status.
+     */
+
+    void change_stage_status();
+    /**
+     * \brief run function with streams.
+     */
+    void run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream);
 };
 

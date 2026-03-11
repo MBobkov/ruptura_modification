@@ -31,4 +31,6 @@ void initializeFromFilePurge(const std::string& filename, size_t Ncomp,
                         std::vector<double>& T,
                         std::vector<double>& Tw);
 
+void reverseGridData(std::vector<double>& data, size_t ncomp, size_t ngrid);
+
 #endif // DATAREADER_H

@@ -190,6 +190,12 @@ InputReader::InputReader(const std::string fileName) : components()
             simulationType = SimulationType::Purge;
             continue;
           }
+          if (caseInSensStringCompare(str, "Cycle"))
+          {
+            simulationType = SimulationType::Cycle;
+            Cycle = true;
+            continue;
+          }
           if (caseInSensStringCompare(str, "MixturePrediction"))
           {
             simulationType = SimulationType::MixturePrediction;
@@ -336,10 +342,16 @@ InputReader::InputReader(const std::string fileName) : components()
         this->h_in = value;
         continue;
       }
-      if (caseInSensStringCompare(keyword, "RampTime"))
+      if (caseInSensStringCompare(keyword, "RampTimeBD"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
-        this->RampTime = value;
+        this->RampTimeBD = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "RampTimePr"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->RampTimePr = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "TotalPressureInit"))
@@ -431,6 +443,18 @@ InputReader::InputReader(const std::string fileName) : components()
         this->columnEntranceVelocity = value;
         continue;
       }
+        if (caseInSensStringCompare(keyword, "ColumnEntranceVelocityAds"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->columnEntranceVelocityAds = value;
+        continue;
+      }
+        if (caseInSensStringCompare(keyword, "ColumnEntranceVelocityPurge"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->columnEntranceVelocityPurge = value;
+        continue;
+      }
 
       if (caseInSensStringCompare(keyword, "NumberOfTimeSteps"))
       {
@@ -469,6 +493,30 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->timeStep = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "TimeStepAds"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->timeStepAds = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "TimeStepPr"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->timeStepPr = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "TimeStepBD"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->timeStepBD = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "TimeStepPurge"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->timeStepPurge = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "PrintEvery"))

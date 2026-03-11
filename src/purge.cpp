@@ -90,10 +90,10 @@ Purge::Purge(const InputReader &inputReader)
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
       timeStage(inputReader.TimeStage),
-      v_in(inputReader.columnEntranceVelocity),
+      v_in(inputReader.columnEntranceVelocityPurge),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
-      dt(inputReader.timeStep),
+      dt(inputReader.timeStepPurge),
       Nsteps(inputReader.numberOfTimeSteps),
       autoSteps(inputReader.autoNumberOfTimeSteps),
       pulse(inputReader.pulseBreakthrough),
@@ -143,7 +143,8 @@ Purge::Purge(const InputReader &inputReader)
       Cpg_mix(Ngrid + 1),
       DPtdt(Ngrid + 1),
       CarrierGasExistance(inputReader.CarrierGasExistance),
-      IsothermalRegime(inputReader.IsothermalRegime)
+      IsothermalRegime(inputReader.IsothermalRegime),
+      cycle(inputReader.Cycle)
 {
 
   //std::cout << "IN CONSTRUCTOR!" << std::endl;
@@ -337,22 +338,27 @@ void Purge::initialize()
     prefactorRight[j] = R * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1;  // Tempreture excluded
   }
 
-  // set P and Q to zero
-  std::fill(P.begin(), P.end(), 0.0);
-  std::fill(Q.begin(), Q.end(), 0.0);
-  std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
-  std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
-  //std::fill(Tinit.begin(), Tinit.end(), Tgs[0]);   // Wall initial tempreture
+
+  if (!cycle) {
+      // set P and Q to zero
+    std::fill(P.begin(), P.end(), 0.0);
+    std::fill(Q.begin(), Q.end(), 0.0);
+    std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
+    std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
+    //std::fill(Tinit.begin(), Tinit.end(), Tgs[0]);   // Wall initial tempreture
 
 
-  std::string fileName = "C:\\InstituteWork\\ruptura_modification_examples\\Cycles_tests\\BlowDown\\testPurge.txt";
+    std::string fileName = "C:\\InstituteWork\\ruptura_modification_examples\\Cycles_tests\\BlowDown\\testPurge.txt";
 
-  initializeFromFilePurge(fileName, Ncomp, P, Q, Tgs, Tw);
+    initializeFromFilePurge(fileName, Ncomp, P, Q, Tgs, Tw);
+  }
 
   for (size_t j = 0; j < Ncomp; ++j)
   {
     P[0 * Ncomp + 0] = 1e5;
-    P[0 * Ncomp + 1] = 0;
+    if (j != 0) {
+       P[0 * Ncomp + j] = 0;
+    }
   }
 
   for (size_t i = 0; i < Ngrid + 1; ++i) {
@@ -472,12 +478,14 @@ void Purge::run()
 
     double t = static_cast<double>(step) * dt;
 
+    
     if (step % writeEvery == 0)
     {
       // write breakthrough output to files
       // column 1: dimensionless time
       // column 2: time [minutes]
       // column 3: normalized partial pressure
+
       for (size_t j = 0; j < Ncomp; ++j)
       {
         streams[j] << t * v_in / L << " " << t / 60.0 << " "
@@ -1574,6 +1582,97 @@ void Purge::computeVelocityTemperature()
 
     // explicit version
     Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]) + Vnew[Ngrid - 1] * (Tgsnew[Ngrid] - Tgsnew[Ngrid - 1]) / Tgsnew[Ngrid] - Vnew[Ngrid - 1] * (Pt[Ngrid] - Pt[Ngrid - 1]) / Pt[Ngrid] - sum * dx * Tgsnew[Ngrid] / Pt[Ngrid] + sum_disp * dx / Pt[Ngrid];
+}
+
+void Purge::run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream)
+{
+
+  for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
+  {
+    // compute new step
+    computeStep(step);
+    //std::cout << "step" << std::endl;
+
+    double t = static_cast<double>(step) * dt;
+
+    if (step % writeEvery == 0)
+    {
+      reverseGridData(P, Ncomp, Ngrid);
+      reverseGridData(Q, Ncomp, Ngrid);
+      reverseGridData(Qeq, Ncomp, Ngrid);
+      reverseGridData(Qeq1, Ncomp, Ngrid);
+      std::reverse(Tgs.begin(), Tgs.end());
+      std::reverse(Tw.begin(), Tw.end());
+
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        extStreams[j] << t * v_in / L << " " << t / 60.0 << " "
+                    << P[Ngrid * Ncomp + j] / ((Pt[Ngrid]) * components[j].Yi0) << std::endl;
+      }
+
+      for (size_t i = 0; i < Ngrid + 1; ++i)
+      {
+        extMovieStream << static_cast<double>(i) * dx << " ";
+        extMovieStream << V[i] << " ";
+        extMovieStream << Pt[i] << " ";
+        if ( indexLeft == 0 ) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i <= indexLeft && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i >= indexRight && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        extMovieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+        
+        extMovieStream << "\n";
+      }
+      extMovieStream << "\n\n";
+
+      reverseGridData(P, Ncomp, Ngrid);
+      reverseGridData(Q, Ncomp, Ngrid);
+      reverseGridData(Qeq, Ncomp, Ngrid);
+      reverseGridData(Qeq1, Ncomp, Ngrid);
+      std::reverse(Tgs.begin(), Tgs.end());
+      std::reverse(Tw.begin(), Tw.end());
+    }
+
+
+    if (step % printEvery == 0)
+    {
+      size_t mid_index = Tgsnew.size() / 2;
+      std::cout << "Timestep " + std::to_string(step) + ", time: " + std::to_string(t) + " [s]" << std::endl;
+      std::cout << "    Average number of mixture-prediction steps: " +
+                       std::to_string(static_cast<double>(iastPerformance.first) /
+                                      static_cast<double>(iastPerformance.second))
+                << std::endl;
+      std::cout << "Current middle-point Tempreture: " + std::to_string(Tgsnew[mid_index]) << " K" << std::endl;
+    }
+  }
+
+  std::cout << "Final timestep " + std::to_string(Nsteps) +
+                   ", time: " + std::to_string(dt * static_cast<double>(Nsteps)) + " [s]"
+            << std::endl;
+  
 }
 
 void Purge::print() const { std::cout << repr(); }

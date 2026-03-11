@@ -11,7 +11,7 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 #endif  // PYBUILD
-
+#pragma once
 /**
  * \brief Simulates a breakthrough process in an adsorption column.
  *
@@ -23,6 +23,7 @@ namespace py = pybind11;
 struct Blowdown
 {
  public:
+  Blowdown();
   /**
    * \brief Constructs a Breakthrough simulation using an InputReader.
    *
@@ -245,6 +246,7 @@ struct Blowdown
   std::vector<double> DPtdt;
   bool CarrierGasExistance{false};
   bool IsothermalRegime{false};
+  bool cycle{false};
 
   enum class IntegrationScheme
   {
@@ -367,6 +369,44 @@ struct Blowdown
    */
 
   void initVelocityDamping();
+  public:
+   /**
+   * \brief Runs the Breakthrough simulation.
+   *
+   * Executes the simulation over the specified number of time steps.
+   */
+  void run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream);
+   
+     /**
+   * \brief Data from previous stage.
+   *
+   * Recieveing data from previous stage
+   */
+  void DataReciever(std::vector<double> &Ps, std::vector<double> &Qs, std::vector<double> &Ts, std::vector<double> &Tws)
+  {
+    std::copy(Ps.begin(), Ps.end(), P.begin());
+    std::copy(Qs.begin(), Qs.end(), Q.begin());
+    std::copy(Ts.begin(), Ts.end(), Tgs.begin());
+    std::copy(Tws.begin(), Tws.end(), Tw.begin());
+  }
+   std::vector<double> get_pressure();
+    /**
+     * \brief Get data to insert in next stage.
+     */
 
+    std::vector<double> get_q();
+    /**
+     * \brief Get data to insert in next stage.
+     */
+
+    std::vector<double> get_T();
+  /**
+     * \brief Change stage status.
+     */
+
+    void change_stage_status();
+    /**
+     * \brief run function with streams.
+     */
 };
 

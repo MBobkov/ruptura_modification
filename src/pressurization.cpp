@@ -89,12 +89,12 @@ Pressurization::Pressurization(const InputReader &inputReader)
       Cps_1(inputReader.Cps_1),
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
-      ramp_time(inputReader.RampTime),
+      ramp_time(inputReader.RampTimePr),
       Pmin(inputReader.Pmin),
       v_in(inputReader.columnEntranceVelocity),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
-      dt(inputReader.timeStep),
+      dt(inputReader.timeStepPr),
       Nsteps(inputReader.numberOfTimeSteps),
       autoSteps(inputReader.autoNumberOfTimeSteps),
       pulse(inputReader.pulseBreakthrough),
@@ -144,7 +144,8 @@ Pressurization::Pressurization(const InputReader &inputReader)
       Cpg_mix(Ngrid + 1),
       DPtdt(Ngrid + 1),
       CarrierGasExistance(inputReader.CarrierGasExistance),
-      IsothermalRegime(inputReader.IsothermalRegime)
+      IsothermalRegime(inputReader.IsothermalRegime),
+      cycle(inputReader.Cycle)
 {
 
   //std::cout << "IN CONSTRUCTOR!" << std::endl;
@@ -344,8 +345,9 @@ void Pressurization::initialize()
   // 3. Заполнение колонны инертным газом (Carrier Gas)
   // Вся колонна, включая вход, заполнена инертным газом при 1 атм.
   // Примесей нет.
-  
-  if (CarrierGasExistance) {
+
+  if (InitialStage) {       // Need for cycle
+    if (CarrierGasExistance) {
       for (size_t i = 0; i < Ngrid + 1; ++i) {
         P[i * Ncomp + carrierGasComponent] = Pmin; // 100000 Pa
         Pnew[i * Ncomp + carrierGasComponent] = Pmin;
@@ -356,6 +358,9 @@ void Pressurization::initialize()
         Pnew[i * Ncomp + 0] = Pmin;
     }
   }
+  }
+  
+  
 
   // 4. Обновляем общее давление Pt
   for (size_t i = 0; i < Ngrid + 1; ++i) {
@@ -411,15 +416,18 @@ void Pressurization::initialize()
 void Pressurization::run()
 {
 
-  // create the output files
   std::vector<std::ofstream> streams;
+  std::ofstream movieStream;
+
+    // create the output files
+  //std::vector<std::ofstream> streams;
   for (size_t i = 0; i < Ncomp; i++)
   {
     std::string fileName = "component_" + std::to_string(i) + "_" + components[i].name + ".data";
     streams.emplace_back(std::ofstream{fileName});
   }
 
-  std::ofstream movieStream("column.data");
+  movieStream.open("column.data");
 
   size_t column_nr = 1;
   movieStream << "# column " << column_nr++ << ": z  (column position)" << std::endl;
@@ -440,11 +448,13 @@ void Pressurization::run()
   movieStream << "# column " << column_nr++ << ": Tw (Wall Temperature)" << std::endl;
   movieStream << "# column " << column_nr++ << ": DTgsdt (derivative Tgs with t)" << std::endl;
   movieStream << "# column " << column_nr++ << ": DTWalldt (derivative Tw with t)" << std::endl;
+  
 
   for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
   {
     // compute new step
     computeStep(step);
+    //std::cout << "step" << std::endl;
 
     double t = static_cast<double>(step) * dt;
 
@@ -454,6 +464,8 @@ void Pressurization::run()
       // column 1: dimensionless time
       // column 2: time [minutes]
       // column 3: normalized partial pressure
+      movieStream.open("column.data");
+      
       for (size_t j = 0; j < Ncomp; ++j)
       {
         streams[j] << t * v_in / L << " " << t / 60.0 << " "
@@ -497,7 +509,9 @@ void Pressurization::run()
         movieStream << "\n";
       }
       movieStream << "\n\n";
+      
     }
+
 
     if (step % printEvery == 0)
     {
@@ -514,6 +528,85 @@ void Pressurization::run()
   std::cout << "Final timestep " + std::to_string(Nsteps) +
                    ", time: " + std::to_string(dt * static_cast<double>(Nsteps)) + " [s]"
             << std::endl;
+  
+}
+
+void Pressurization::run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream)
+{
+
+  for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
+  {
+    // compute new step
+    computeStep(step);
+    //std::cout << "step" << std::endl;
+
+    double t = static_cast<double>(step) * dt;
+
+    if (step % writeEvery == 0)
+    {
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        extStreams[j] << t * v_in / L << " " << t / 60.0 << " "
+                    << P[Ngrid * Ncomp + j] / ((Pt[Ngrid]) * components[j].Yi0) << std::endl;
+      }
+
+      for (size_t i = 0; i < Ngrid + 1; ++i)
+      {
+        extMovieStream << static_cast<double>(i) * dx << " ";
+        extMovieStream << V[i] << " ";
+        extMovieStream << Pt[i] << " ";
+        if ( indexLeft == 0 ) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i <= indexLeft && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i >= indexRight && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        extMovieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+        
+        extMovieStream << "\n";
+      }
+      extMovieStream << "\n\n";
+      
+    }
+
+
+    if (step % printEvery == 0)
+    {
+      size_t mid_index = Tgsnew.size() / 2;
+      std::cout << "Timestep " + std::to_string(step) + ", time: " + std::to_string(t) + " [s]" << std::endl;
+      std::cout << "    Average number of mixture-prediction steps: " +
+                       std::to_string(static_cast<double>(iastPerformance.first) /
+                                      static_cast<double>(iastPerformance.second))
+                << std::endl;
+      std::cout << "Current middle-point Tempreture: " + std::to_string(Tgsnew[mid_index]) << " K" << std::endl;
+    }
+  }
+
+  std::cout << "Final timestep " + std::to_string(Nsteps) +
+                   ", time: " + std::to_string(dt * static_cast<double>(Nsteps)) + " [s]"
+            << std::endl;
+  
 }
 
 #ifdef PYBUILD
@@ -1240,7 +1333,21 @@ void Pressurization::computeFirstDerivatives2(
 }
 
 
+std::vector<double> Pressurization::get_pressure() {
+  return P;
+}
 
+std::vector<double> Pressurization::get_q() {
+  return Q;
+}
+
+std::vector<double> Pressurization::get_T() {
+  return Tgs;
+}
+
+void Pressurization::change_stage_status() {
+  InitialStage = false; 
+}
 
 // calculate new velocity Vnew from Qnew, Qeqnew, Pnew, Pt
 void Pressurization::computeVelocity()

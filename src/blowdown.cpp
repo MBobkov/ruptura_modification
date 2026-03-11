@@ -91,13 +91,13 @@ Blowdown::Blowdown(const InputReader &inputReader)
       Cps_1(inputReader.Cps_1),
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
-      ramp_time(inputReader.RampTime),
+      ramp_time(inputReader.RampTimeBD),
       TotalPressureInit(inputReader.TotalPressureInit),
       TotalPressureFinal(inputReader.TotalPressureFinal),
       v_in(inputReader.columnEntranceVelocity),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
-      dt(inputReader.timeStep),
+      dt(inputReader.timeStepBD),
       Nsteps(inputReader.numberOfTimeSteps),
       autoSteps(inputReader.autoNumberOfTimeSteps),
       pulse(inputReader.pulseBreakthrough),
@@ -147,7 +147,8 @@ Blowdown::Blowdown(const InputReader &inputReader)
       Cpg_mix(Ngrid + 1),
       DPtdt(Ngrid + 1),
       CarrierGasExistance(inputReader.CarrierGasExistance),
-      IsothermalRegime(inputReader.IsothermalRegime)
+      IsothermalRegime(inputReader.IsothermalRegime),
+      cycle(inputReader.Cycle)
 {
 
   //std::cout << "IN CONSTRUCTOR!" << std::endl;
@@ -341,49 +342,66 @@ void Blowdown::initialize()
     prefactorRight[j] = R * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1; 
   }
 
+   std::fill(V.begin(), V.end(), 0.0);
+    std::fill(Vnew.begin(), Vnew.end(), 0.0);
 
-  // 2. Очистка массивов
-  std::fill(P.begin(), P.end(), 0.0);
-  std::fill(Pnew.begin(), Pnew.end(), 0.0);
-  std::fill(Q.begin(), Q.end(), 0.0);
-  std::fill(Qnew.begin(), Qnew.end(), 0.0);
+  if (!cycle) {
+      // 2. Очистка массивов
+    std::fill(P.begin(), P.end(), 0.0);
+    std::fill(Pnew.begin(), Pnew.end(), 0.0);
+    std::fill(Q.begin(), Q.end(), 0.0);
+    std::fill(Qnew.begin(), Qnew.end(), 0.0);
 
-  // Температуры = 295 К
-  std::fill(Tgs.begin(), Tgs.end(), T);
-  std::fill(Tgsnew.begin(), Tgsnew.end(), T); 
-  std::fill(Tw.begin(), Tw.end(), Tamb);
-  std::fill(Twnew.begin(), Twnew.end(), Tamb);
+    // Температуры = 295 К
+    std::fill(Tgs.begin(), Tgs.end(), T);
+    std::fill(Tgsnew.begin(), Tgsnew.end(), T); 
+    std::fill(Tw.begin(), Tw.end(), Tamb);
+    std::fill(Twnew.begin(), Twnew.end(), Tamb);
 
-  // Скорость = 0 (Покой)
-  std::fill(V.begin(), V.end(), 0.0);
-  std::fill(Vnew.begin(), Vnew.end(), 0.0);
+    // Скорость = 0 (Покой)
 
-  std::string fileName = "C:\\InstituteWork\\ruptura_modification_examples\\Cycles_tests\\BlowDown\\test.txt";
+    std::string fileName = "C:\\InstituteWork\\ruptura_modification_examples\\Cycles_tests\\BlowDown\\test.txt";
 
-  // 3. Заполнение колонны инертным газом (Carrier Gas)
-  // Вся колонна, включая вход, заполнена инертным газом при 1 атм.
-  // Примесей нет.
-  
+    // 3. Заполнение колонны инертным газом (Carrier Gas)
+    // Вся колонна, включая вход, заполнена инертным газом при 1 атм.
+    // Примесей нет.
+    
+    if (CarrierGasExistance) {
+        for (size_t i = 0; i < Ngrid + 1; ++i) {
+          P[i * Ncomp + carrierGasComponent] = TotalPressureInit; // 100000 Pa
+          Pnew[i * Ncomp + carrierGasComponent] = TotalPressureInit;
+        }
+    } else {
+      for (size_t i = 0; i < Ngrid + 1; ++i) {
+          P[i * Ncomp + 0] = TotalPressureInit;       
+          Pnew[i * Ncomp + 0] = TotalPressureInit;
+      }
+    }
+
+    initializeFromFile(fileName, Ncomp, P, Q, Tgs, Tw);
+  }
+
+  //std::cout << Q[0] << std::endl;
   if (CarrierGasExistance) {
       for (size_t i = 0; i < Ngrid + 1; ++i) {
-        P[i * Ncomp + carrierGasComponent] = TotalPressureInit; // 100000 Pa
+        //P[i * Ncomp + carrierGasComponent] = TotalPressureInit; // 100000 Pa
         Pnew[i * Ncomp + carrierGasComponent] = TotalPressureInit;
       }
   } else {
     for (size_t i = 0; i < Ngrid + 1; ++i) {
-        P[i * Ncomp + 0] = TotalPressureInit;       
+        //P[i * Ncomp + 0] = TotalPressureInit;       
         Pnew[i * Ncomp + 0] = TotalPressureInit;
     }
   }
 
-  initializeFromFile(fileName, Ncomp, P, Q, Tgs, Tw);
-
-  //std::cout << Q[0] << std::endl;
-
   // 4. Обновляем общее давление Pt
   for (size_t i = 0; i < Ngrid + 1; ++i) {
     Pt[i] = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j) Pt[i] += P[i * Ncomp + j];
+    for (size_t j = 0; j < Ncomp; ++j) {
+      Pt[i] += P[i * Ncomp + j];
+      //std::cout << P[i * Ncomp + j] << " " << i << " " << j << std::endl;
+    }
+    //std::cout << Pt[i * Ncomp + j] << " " << i << std::endl;
     if (Pt[i] > 1e6) {
       //Pt[i] = 1e6;
       //P[i * Ncomp + 0] = 1e6;
@@ -435,7 +453,13 @@ void Blowdown::initialize()
       Qeq1[i * Ncomp + j] = Ni1[j];
       Qeqnew1[i * Ncomp + j] = Ni1[j];
     }
+  }
 
+  //for (size_t i = 0; i < Ngrid + 1; ++i) {
+   // for (size_t j = 0; j < Ncomp; ++j) {
+  //    std::cout << P[i * Ncomp + j] << " " << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << Tgs[i] << " " << Tw[i] << " " << i << " " << j << std::endl;
+  //  }
+ // }
     //std::fill(Q.begin(), Q.end(), 0.0);
     //std::copy(Qeq.begin(), Qeq.end(), Q.begin());
     //std::fill(Vnew.begin(), Vnew.end(), -1e3);
@@ -443,6 +467,17 @@ void Blowdown::initialize()
     //computeVelocity();
     //initVelocityDamping();
   }
+
+std::vector<double> Blowdown::get_pressure() {
+  return P;
+}
+
+std::vector<double> Blowdown::get_q() {
+  return Q;
+}
+
+std::vector<double> Blowdown::get_T() {
+  return Tgs;
 }
 
 void Blowdown::run()
@@ -552,6 +587,8 @@ void Blowdown::run()
                    ", time: " + std::to_string(dt * static_cast<double>(Nsteps)) + " [s]"
             << std::endl;
 }
+
+
 
 #ifdef PYBUILD
 
@@ -1083,6 +1120,84 @@ void Blowdown::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<do
         dTdtWall[Ngrid] = (4 * D_column_inner * h_in_1 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                         + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
     }
+}
+
+void Blowdown::run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream)
+{
+
+  for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
+  {
+    // compute new step
+    computeStep(step);
+    //std::cout << "step" << std::endl;
+
+    double t = static_cast<double>(step) * dt;
+
+    if (step % writeEvery == 0)
+    {
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        extStreams[j] << t * v_in / L << " " << t / 60.0 << " "
+                    << P[Ngrid * Ncomp + j] / ((Pt[Ngrid]) * components[j].Yi0) << std::endl;
+      }
+
+      for (size_t i = 0; i < Ngrid + 1; ++i)
+      {
+        extMovieStream << static_cast<double>(i) * dx << " ";
+        extMovieStream << V[i] << " ";
+        extMovieStream << Pt[i] << " ";
+        if ( indexLeft == 0 ) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i <= indexLeft && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        if ( i >= indexRight && indexLeft != 0) {
+          for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
+                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
+                      << Dqdt[i * Ncomp + j] << " ";
+        }
+        }
+
+        extMovieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+        
+        extMovieStream << "\n";
+      }
+      extMovieStream << "\n\n";
+      
+    }
+
+
+    if (step % printEvery == 0)
+    {
+      size_t mid_index = Tgsnew.size() / 2;
+      std::cout << "Timestep " + std::to_string(step) + ", time: " + std::to_string(t) + " [s]" << std::endl;
+      std::cout << "    Average number of mixture-prediction steps: " +
+                       std::to_string(static_cast<double>(iastPerformance.first) /
+                                      static_cast<double>(iastPerformance.second))
+                << std::endl;
+      std::cout << "Current middle-point Tempreture: " + std::to_string(Tgsnew[mid_index]) << " K" << std::endl;
+    }
+  }
+
+  std::cout << "Final timestep " + std::to_string(Nsteps) +
+                   ", time: " + std::to_string(dt * static_cast<double>(Nsteps)) + " [s]"
+            << std::endl;
+  
 }
 
 void Blowdown::computeFirstDerivatives2(
@@ -1640,7 +1755,7 @@ void Blowdown::computeVelocityTemperatureLight(const std::vector<double>& curren
         // Для blowdown обычно ожидаем v <= 0 (поток к выходу)
         // Временно можно оставить предохранитель:
         //std::cout << Vnew[i] << " " << Vnew[k] << " " << i << " " << dPt_dt_local << " "<< term_Accumulation * dx << " " << (1.0 / current_Pt) * Vnew[i] * dPdz * dx << " " << (1.0 / current_Pt) * sum_sorption * dx << std::endl;
-        if (Vnew[i] > 0.0) {
+        if (Vnew[i] > 0.0 || Pt[i] < 1e5) {
            //std::cout << Vnew[i] << " " << Vnew[k] << " " << i << " " << dPt_dt_local << " "<< term_Accumulation * dx << " " << (1.0 / current_Pt) * Vnew[i] * dPdz * dx << " " << total_demand * dx << std::endl;
            Vnew[i] = 0;
         }
