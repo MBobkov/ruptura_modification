@@ -149,21 +149,28 @@ struct Breakthrough
   double dptdx;    ///< Pressure gradient [N/m³].
   double epsilon;  ///< Void-fraction of the column [-].
   double epsilon1;  ///< Void-fraction of the column [-].
+  double epsilon2;  ///< Void-fraction of the column [-].
   double rho_p;    ///< Particle density [kg/m³].
   double rho_p1;    ///< Particle density [kg/m³].
+  double rho_p2;    ///< Particle density [kg/m³].
   double rho_wall;                              ///< Wall density [kg/m3]
   double lambda_ax;                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
   double lambda_ax_1;                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
+  double lambda_ax_2;                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
   double lambda_w;                              ///< Thermal conductivity of the wall material [W/(m·K)] (optional, if we consider the longitudinal conductivity of the wall)
   double D_column_out;                              ///< Outer Diameter of the column [m]
   double D_column_inner;                              ///< Inner Diameter of the column [m]
   double h_in;                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
   double h_in_1;                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
+  double h_in_2;                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
   double h_out;                              ///< Heat transfer coeff outside [W/(m²·K)]
   double Cps;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
+  double Cps_2;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
+  double boundaryCoordinate1;  ///< boundary x 2nd coord 
+
   
   
   //double h_out_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
@@ -183,22 +190,27 @@ struct Breakthrough
   double tpulse;                                    ///< Pulse time.
   MixturePrediction mixture;                        ///< MixturePrediction object for mixture predictions.
   MixturePrediction mixture1;                        ///< MixturePrediction object for mixture predictions.
+  MixturePrediction mixture2;                        ///< MixturePrediction object for mixture predictions.
   size_t maxIsothermTerms;                          ///< Maximum number of isotherm terms.
   size_t maxIsothermTerms1;                          ///< Maximum number of isotherm terms.
+  size_t maxIsothermTerms2;                          ///< Maximum number of isotherm terms.
   std::pair<size_t, size_t> iastPerformance{0, 0};  ///< Performance metrics for IAST calculations.
   std::pair<size_t, size_t> iastPerformance1{0, 0};  ///< Performance metrics for IAST calculations.
+  std::pair<size_t, size_t> iastPerformance2{0, 0};  ///< Performance metrics for IAST calculations.
 
   // vector of size 'Ncomp'
   std::vector<double> prefactorLeft;  ///< Precomputed factors for mass transfer.
-  std::vector<double> prefactorLeftGP;  ///< Precomputed factors for mass transfer.
-  std::vector<double> prefactorRightGP;  ///< Precomputed factors for mass transfer.
+  std::vector<double> prefactorMiddle;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorRight;  ///< Precomputed factors for mass transfer.
   std::vector<double> Yi;         ///< Ideal gas mole fractions for each component.
   std::vector<double> Yi1;         ///< Ideal gas mole fractions for each component.
+  std::vector<double> Yi2;         ///< Ideal gas mole fractions for each component.
   std::vector<double> Xi;         ///< Adsorbed mole fractions for each component.
   std::vector<double> Xi1;         ///< Adsorbed mole fractions for each component.
+  std::vector<double> Xi2;         ///< Adsorbed mole fractions for each component.
   std::vector<double> Ni;         ///< Number of molecules for each component.
   std::vector<double> Ni1;         ///< Number of molecules for each component.
+  std::vector<double> Ni2;         ///< Number of molecules for each component.
 
   // vector of size '(Ngrid + 1)'
   std::vector<double> V;     ///< Interstitial gas velocity along the column.
@@ -212,8 +224,10 @@ struct Breakthrough
   std::vector<double> Qnew;       ///< Updated adsorption amounts.
   std::vector<double> Qeq;
   std::vector<double> Qeq1;          ///< Equilibrium adsorption amount at every grid point for each component.
+  std::vector<double> Qeq2;          ///< Equilibrium adsorption amount at every grid point for each component.
   std::vector<double> Qeqnew; 
   std::vector<double> Qeqnew1;    ///< Updated equilibrium adsorption amounts.
+  std::vector<double> Qeqnew2;    ///< Updated equilibrium adsorption amounts.
   std::vector<double> Dpdt;       ///< Derivative of P with respect to time.
   std::vector<double> Dpdtnew;    ///< Updated derivative of P with respect to time.
   std::vector<double> Dqdt;       ///< Derivative of Q with respect to time.
@@ -224,8 +238,10 @@ struct Breakthrough
   std::vector<double> DTdtWallnew;       ///< Updated derivative of T wall  with respect to time.
   std::vector<double> cachedP0;   ///< Cached hypothetical pressure.
   std::vector<double> cachedP01;   ///< Cached hypothetical pressure.
+  std::vector<double> cachedP02;   ///< Cached hypothetical pressure.
   std::vector<double> cachedPsi;  ///< Cached reduced grand potential over the column.
   std::vector<double> cachedPsi1;  ///< Cached reduced grand potential over the column.
+  std::vector<double> cachedPsi2;  ///< Cached reduced grand potential over the column.
   std::vector<double> Tgs;  ///< Gas temperature
   std::vector<double> Tgsnew;  ///< Updated Gas temperature
   std::vector<double> Tw;  ///< Wall temperature  
@@ -256,12 +272,8 @@ struct Breakthrough
    * \param v Interstitial gas velocities.
    * \param p Partial pressures.
    */
-  void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);
-
   void computeFirstDerivatives2(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+                                           const std::vector<double> &q_eq, const std::vector<double> &q,
                                            const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);                                         
 
   /**

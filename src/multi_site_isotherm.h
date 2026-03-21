@@ -23,6 +23,7 @@ struct MultiSiteIsotherm
 {
   size_t numberOfSites{0};        ///< The number of isotherm sites included in the model for 1st layer.
   size_t numberOfSites1{0};        ///< The number of isotherm sites included in the model for 2nd layer.
+  size_t numberOfSites2{0};        ///< The number of isotherm sites included in the model for 3rd layer.
   std::vector<Isotherm> sites{};  ///< A vector containing the individual isotherm site objects.
 
   size_t numberOfParameters{0};  ///< The total number of parameters across all isotherm sites.
@@ -148,6 +149,14 @@ struct MultiSiteIsotherm
 
     }
 
+    if (site == 2) {
+      for (size_t i = numberOfSites1; i < numberOfSites1 + numberOfSites2; ++i)     
+    {
+      sum += sites[i].value(pressure, Tmp);
+    }
+
+    }
+
     return sum;
     
   }
@@ -196,6 +205,14 @@ struct MultiSiteIsotherm
     }
 
     }
+    
+    if (site == 2) {
+      for (size_t i = numberOfSites1; i < numberOfSites2 + numberOfSites1; ++i)     
+    {
+      sum += sites[i].psiForPressure(pressure, Tmp);
+    }
+  }
+
     return sum;
     
   }

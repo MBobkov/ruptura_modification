@@ -20,6 +20,11 @@ std::string MultiSiteIsotherm::repr() const
   {
     s += sites[i].repr();       // sites uses to store multi isotherms, but now we'll use it like a storage for isotherm-layer object (1st isotherm for 1st layer, 2nd isotherm for 2nd layer), if you want use 
   }
+  s += "    number of isotherm sites for the third layer:  " + std::to_string(numberOfSites2) + "\n";   // there was numberOfSites instead numberOfSiteLayers
+    for (size_t i = numberOfSites1; i < numberOfSites1 + numberOfSites2; ++i) // there was numberOfSites instead numberOfSiteLayers
+  {
+    s += sites[i].repr();       // sites uses to store multi isotherms, but now we'll use it like a storage for isotherm-layer object (1st isotherm for 1st layer, 2nd isotherm for 2nd layer), if you want use 
+  }
   return s;
 }
 
@@ -72,6 +77,11 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
   if (numberOfSites1 == 1 && site == 1)
   {
     return sites[numberOfSites1].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
+  }
+
+  if (numberOfSites1 == 1 && site == 2)
+  {
+    return sites[numberOfSites2].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
   }
 
   // from here on, work with pressure, and return 1.0 / pressure at the end of the routine

@@ -288,6 +288,12 @@ InputReader::InputReader(const std::string fileName) : components()
         this->columnVoidFraction_1 = value;
         continue;
       }
+      if (caseInSensStringCompare(keyword, "ColumnVoidFraction_2"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->columnVoidFraction_2 = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "ParticleDensity"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
@@ -300,6 +306,12 @@ InputReader::InputReader(const std::string fileName) : components()
         this->particleDensity1 = value;
         continue;
       }
+       if (caseInSensStringCompare(keyword, "ParticleDensity_2"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->particleDensity2 = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "Lambda_ax"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
@@ -310,6 +322,12 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->lambda_ax_1 = value;
+        continue;
+      }
+       if (caseInSensStringCompare(keyword, "Lambda_ax_2"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->lambda_ax_2 = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "StageTime"))
@@ -376,6 +394,12 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->h_in_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "h_in_2"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->h_in_2 = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "h_out"))
@@ -543,6 +567,12 @@ InputReader::InputReader(const std::string fileName) : components()
         this->boundary_coord = value;
         continue;
       }
+      if (caseInSensStringCompare(keyword, "BoundaryCoord1"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->boundary_coord1 = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "Ambient_Temperature"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
@@ -559,6 +589,12 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->Cps_1 = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Cps_2"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        this->Cps_2 = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "Cpw"))
@@ -659,6 +695,7 @@ InputReader::InputReader(const std::string fileName) : components()
         double value = parseDouble(arguments, keyword, lineNumber);
         if (numberOfLayers == 1) { components[numberOfComponents - 1].Kl = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].Kl1 = value; }
+        if (numberOfLayers == 3) { components[numberOfComponents - 1].Kl2 = value; }
         continue;
       }
       if (caseInSensStringCompare(keyword, "AxialDispersionCoefficient"))
@@ -666,6 +703,7 @@ InputReader::InputReader(const std::string fileName) : components()
         double value = parseDouble(arguments, keyword, lineNumber);
         if (numberOfLayers == 1) { components[numberOfComponents - 1].D = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].D1 = value; }
+        if (numberOfLayers == 3) { components[numberOfComponents - 1].D2 = value; }
         continue;
       }
       if (caseInSensStringCompare(keyword, "AdsorptionHeat"))
@@ -673,6 +711,7 @@ InputReader::InputReader(const std::string fileName) : components()
         double value = parseDouble(arguments, keyword, lineNumber);
         if (numberOfLayers == 1) { components[numberOfComponents - 1].dH = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].dH1 = value; }
+        if (numberOfLayers == 3) { components[numberOfComponents - 1].dH2 = value; }
         continue;
       }
       if (caseInSensStringCompare(keyword, "MolarMass"))
@@ -692,6 +731,7 @@ InputReader::InputReader(const std::string fileName) : components()
         size_t value = parse<size_t>(arguments, keyword, lineNumber);
         if (numberOfLayers == 1) { components[numberOfComponents - 1].isotherm.numberOfSites = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].isotherm.numberOfSites1 = value; }
+        if (numberOfLayers == 3) { components[numberOfComponents - 1].isotherm.numberOfSites2 = value; }
         continue;
       }
 
@@ -965,6 +1005,7 @@ InputReader::InputReader(const std::string fileName) : components()
     {
       components[j].dH = 0;
       components[j].dH1 = 0;
+      components[j].dH2 = 0;
     }
   }
   }
@@ -995,6 +1036,11 @@ InputReader::InputReader(const std::string fileName) : components()
         std::max_element(components.begin(), components.end(), [](Component& lhs, Component& rhs)
                          { return lhs.isotherm.numberOfSites1 < rhs.isotherm.numberOfSites1; });
     maxIsothermTerms1 = maxIsothermTermsIterator1->isotherm.numberOfSites1;
+
+        std::vector<Component>::iterator maxIsothermTermsIterator2 =
+        std::max_element(components.begin(), components.end(), [](Component& lhs, Component& rhs)
+                         { return lhs.isotherm.numberOfSites2 < rhs.isotherm.numberOfSites2; });
+    maxIsothermTerms2 = maxIsothermTermsIterator2->isotherm.numberOfSites2;
   }
 
   if (simulationType == SimulationType::Breakthrough)

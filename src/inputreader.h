@@ -45,6 +45,7 @@ struct InputReader
   size_t carrierGasComponent{0};      ///< The index of the carrier gas component.
   size_t maxIsothermTerms{0};         ///< The maximum number of isotherm terms among all components.
   size_t maxIsothermTerms1{0};         ///< The maximum number of isotherm terms among all components.
+  size_t maxIsothermTerms2{0};         ///< The maximum number of isotherm terms among all components.
   size_t numberOfLayers{0};           ///< The layers counter.
 
   SimulationType simulationType{SimulationType::Breakthrough};  ///< The type of simulation to perform.
@@ -54,6 +55,7 @@ struct InputReader
   double temperature{433.0};                                    ///< The simulation temperature in Kelvin.
   double columnVoidFraction{0.4};                               ///< The void fraction of the column.
   double columnVoidFraction_1{0.4};                               ///< The void fraction of the column.
+  double columnVoidFraction_2{0.4};                               ///< The void fraction of the column.
   double RampTimePr{1};                               ///< The void fraction of the column.
   double RampTimeBD{1};                               ///< The void fraction of the column.
   double Pmin{1e5};
@@ -63,27 +65,32 @@ struct InputReader
 
   double Cps{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]
   double Cps_1{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]
+  double Cps_2{1000.0};                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(mol·K)]
   double Cpw{1000.0};                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double rho_w{1000.0};                              ///< Density of the column wall [kg/m3]
  
   double lambda_ax{1000.0};                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
   double lambda_ax_1{1000.0};                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
+  double lambda_ax_2{1000.0};                              ///< Effective axial thermal conductivity of the layer [W/(m·K)]
   double lambda_w{1000.0};                              ///< Thermal conductivity of the wall material [W/(m·K)] (optional, if we consider the longitudinal conductivity of the wall)
   double h_in{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
   double h_in_1{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
+  double h_in_2{1000.0};                              ///< internal heat transfer coefficient (layer→wall) [W/(m²·K)]
   double h_out{1000.0};                              ///< Heat transfer coeff outside [W/(m²·K)]
   double D_column_inner{1000.0};                              ///< Diameter of inner column [m]
   double D_column_out{1000.0};                              ///< Outer Diameter of the column [m]
   double Tamb{293};
   double particleDensity{1000.0};                               ///< The density of the particles in kg/m^3.
   double particleDensity1{1000.0};                              ///< The density of the 2nd particles in kg/m^3.    
+  double particleDensity2{1000.0};                              ///< The density of the 2nd particles in kg/m^3.    
   double totalPressure{1.0e6};                                  ///< The total pressure in the system in Pa.
   double pressureGradient{0.0};                                 ///< The pressure gradient in the column.
   double columnEntranceVelocity{0.1};                           ///< The entrance velocity of the column in m/s.
   double columnEntranceVelocityAds{0.1};                           ///< The entrance velocity of the column in m/s.
   double columnEntranceVelocityPurge{0.1};                           ///< The entrance velocity of the column in m/s.
   double columnLength{0.3};                                     ///< The length of the column in meters.
-  double boundary_coord{0.15};                                  ///< The x-coord of the boundary
+  double boundary_coord{0.1};                                  ///< The x-coord of the boundary
+  double boundary_coord1{0.2};                                  ///< The x-coord of the boundary
   bool CarrierGasExistance{false};
   bool IsothermalRegime{false};
   bool Cycle{false};
