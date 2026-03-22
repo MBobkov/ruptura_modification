@@ -30,15 +30,15 @@ std::string Component::repr() const
   s += "    mol-fraction in the gas:   " + std::to_string(Yi0) + " [-]\n";
   if (!isCarrierGas)
   {
-    s += "    mas-transfer coefficient: " + std::to_string(Kl) + " [1/s]\n";
-    s += "    2nd mas-transfer coefficient: " + std::to_string(Kl1) + " [1/s]\n";
-    s += "    3rd mas-transfer coefficient: " + std::to_string(Kl2) + " [1/s]\n";
-    s += "    diffusion coefficient:     " + std::to_string(D) + " [m^2/s]\n";
-    s += "    2nd diffusion coefficient:     " + std::to_string(D1) + " [m^2/s]\n";
-    s += "    3rd diffusion coefficient:     " + std::to_string(D2) + " [m^2/s]\n";
-    s += "    Adsorption heat [J/mol]:     " + std::to_string(dH) + " [J/mol]\n";
-    s += "    2nd Adsorption heat [J/mol]:     " + std::to_string(dH1) + " [J/mol]\n";
-    s += "    3rd Adsorption heat [J/mol]:     " + std::to_string(dH2) + " [J/mol]\n";
+    for (size_t i = 0; i < Kl_values.size(); ++i) {
+      s += "    mas-transfer coefficient for site " + std::to_string(i+1) + ": " + std::to_string(Kl_values[i]) + " [1/s]\n";
+    }
+    for (size_t i = 0; i < D_values.size(); ++i) {
+      s += "    diffusion coefficient for site " + std::to_string(i+1) + ": " + std::to_string(D_values[i]) + " [m^2/s]\n";
+    }
+    for (size_t i = 0; i < dH_values.size(); ++i) {
+      s += "    Adsorption heat for site " + std::to_string(i+1) + ": " + std::to_string(dH_values[i]) + " [J/mol]\n";
+    }
     s += "    Cpg:     " + std::to_string(Cpg) + " [J/(mol*K)]\n";
     s += isotherm.repr();
   }

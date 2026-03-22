@@ -69,21 +69,31 @@ double MultiSiteIsotherm::inversePressureForPsi(size_t site, double reduced_gran
   double right_bracket;
 
   // For a single Langmuir or Langmuir-Freundlich site, the inverse can be handled analytically
-  if (numberOfSites == 1 && site == 0)
-  {
-    return sites[0].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp);
+  // if (numberOfSites == 1 && site == 0)
+  // {
+  //   return sites[0].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp);
+  // }
+
+  // if (numberOfSites1 == 1 && site == 1)
+  // {
+  //   return sites[site].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
+  // }
+
+  // if (numberOfSites1 == 1 && site == 2)
+  // {
+  //   return sites[site].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
+  // }
+
+  size_t start_index = 0;
+  for (size_t i = 0; i < site; ++i) {
+      start_index += NumbersOfSites[i];
   }
 
-  if (numberOfSites1 == 1 && site == 1)
+  if (NumbersOfSites[site] == 1)
   {
-    return sites[numberOfSites1].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
+    return sites[start_index].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp);
   }
-
-  if (numberOfSites1 == 1 && site == 2)
-  {
-    return sites[numberOfSites2].inversePressureForPsi(reduced_grand_potential, cachedP0, Tmp); //???
-  }
-
+  
   // from here on, work with pressure, and return 1.0 / pressure at the end of the routine
   double p_start;
   if (cachedP0 <= 0.0)

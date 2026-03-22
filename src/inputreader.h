@@ -41,6 +41,12 @@ struct InputReader
   };
 
   std::vector<Component> components;  ///< The list of components involved in the simulation.
+  std::vector<double> BoundaryCoords;
+  std::vector<double> rho_particle;  ///< Particle density along the column (for layered columns)
+  std::vector<double> eps; ///< Void fraction along the column (for layered columns)  
+  std::vector<double> Cps_layer; ///< Specific heat capacity of the adsorbent along the column (for layered columns)
+  std::vector<double> lambda_x_layer; ///< Effective axial thermal conductivity of the layer along the column (for layered columns)
+  std::vector<double> h_in_layer; ///< internal heat transfer coefficient (layer→wall
   size_t numberOfCarrierGases{0};     ///< The number of carrier gas components.
   size_t carrierGasComponent{0};      ///< The index of the carrier gas component.
   size_t maxIsothermTerms{0};         ///< The maximum number of isotherm terms among all components.

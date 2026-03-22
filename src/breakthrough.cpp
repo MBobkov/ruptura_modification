@@ -94,6 +94,7 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
       boundaryCoordinate1(inputReader.boundary_coord1),
+      numberOfLayers(inputReader.numberOfLayers),
       v_in(inputReader.columnEntranceVelocity),
       L(inputReader.columnLength),
       dx(L / static_cast<double>(Ngrid)),
@@ -103,14 +104,10 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       pulse(inputReader.pulseBreakthrough),
       tpulse(inputReader.pulseTime),
       mixture(inputReader),
-      mixture1(inputReader),
-      mixture2(inputReader),
       maxIsothermTerms(inputReader.maxIsothermTerms),
       maxIsothermTerms1(inputReader.maxIsothermTerms1),
       maxIsothermTerms2(inputReader.maxIsothermTerms2),
-      prefactorLeft(Ncomp),
-      prefactorMiddle(Ncomp),
-      prefactorRight(Ncomp),
+      prefactors((Ngrid + 1) * Ncomp),
       Yi(Ncomp),
       Yi1(Ncomp),
       Yi2(Ncomp),
@@ -142,11 +139,7 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       DTdtWall(Ngrid + 1),
       DTdtWallnew(Ngrid + 1),
       cachedP0((Ngrid + 1) * Ncomp * maxIsothermTerms),
-      cachedP01((Ngrid + 1) * Ncomp * maxIsothermTerms1),
-      cachedP02((Ngrid + 1) * Ncomp * maxIsothermTerms2),
       cachedPsi((Ngrid + 1) * maxIsothermTerms),
-      cachedPsi1((Ngrid + 1) * maxIsothermTerms1),
-      cachedPsi2((Ngrid + 1) * maxIsothermTerms2),
       Tgs(Ngrid + 1),
       Tgsnew(Ngrid + 1),
       Tw(Ngrid + 1),
@@ -154,8 +147,14 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       Mol_mix(Ngrid + 1),
       Cpg_mix(Ngrid + 1),
       DPtdt(Ngrid + 1),
-      CarrierGasExistance(inputReader.CarrierGasExistance),
-      IsothermalRegime(inputReader.IsothermalRegime)
+      Bd(inputReader.BoundaryCoords),
+      indexes(numberOfLayers + 1),
+      rho_particle(inputReader.rho_particle),
+      eps(inputReader.eps),
+      Cps_layer(inputReader.Cps_layer),
+      lambda_x_layer(inputReader.lambda_x_layer),
+      h_in_layer(inputReader.h_in_layer),
+      CarrierGasExistance(inputReader.CarrierGasExistance)
 {
 
   //std::cout << "IN CONSTRUCTOR!" << std::endl;
@@ -178,27 +177,53 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       break;
     }
   }
-  
+
+  size_t temp_index = 0;
+
+  indexes[0] = 0;
+  indexes[numberOfLayers] = Ngrid + 1;
+
+  Bd.resize(numberOfLayers - 1);
+
+  for (size_t k = 0; k < numberOfLayers - 1; ++k) {
+    for (size_t i = temp_index; i < Ngrid + 1; ++i) {
+       if (Bd[k] < static_cast<double>(i) * dx) {
+         indexes[k + 1] = i;
+         temp_index = i;
+         break;
+       }
+    }
+  }
+
+  for (size_t i = 0; i < numberOfLayers; ++i) {
+    std::cout << "Layer " << i << ": from " << static_cast<double>(indexes[i]) * dx << " m to " << (static_cast<double>(indexes[i + 1]) - 1) * dx << " m" << std::endl;
+  }
+  std::cout << numberOfLayers << " layers in total." << std::endl;
 }
 
 void Breakthrough::initialize()
 {
-  // precomputed factor for mass transfer
-  for (size_t j = 0; j < Ncomp; ++j)
+
+  size_t layerCounter = 0;
+
+  for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    prefactorLeft[j] = R * ((1.0 - epsilon) / epsilon) * rho_p * components[j].Kl;
+    if (i == indexes[layerCounter + 1]) {
+      layerCounter += 1;
+    }
+    for (size_t j = 0; j < Ncomp; ++j)
+    {
+      prefactors[i * Ncomp + j] = R * ((1.0 - eps[layerCounter]) / eps[layerCounter]) * ( rho_particle[layerCounter] ) * (components[j].Kl_values[layerCounter]);
+    }
   }
 
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    prefactorMiddle[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p1 ) * (components[j].Kl1 );
-  }
-  
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    prefactorRight[j] = R * ((1.0 - epsilon2) / epsilon2) * rho_p2 * components[j].Kl2;  // Tempreture excluded
-  }
-
+   // for (size_t i = 0; i < Ngrid + 1; ++i)
+   // {
+   //   for (size_t j = 0; j < Ncomp; ++j)
+   //   {
+   //     std::cout << "prefactors[" << i << "][" << j << "] = " << prefactors[i * Ncomp + j] << std::endl;
+   //   }
+   // }
   // set P and Q to zero
   std::fill(P.begin(), P.end(), 0.0);
   std::fill(Q.begin(), Q.end(), 0.0);
@@ -251,72 +276,30 @@ void Breakthrough::initialize()
   // the K of the carrier gas is chosen as zero
   // so Qeq is zero for all components in the column after the entrance
   // only the values for Yi at the entrance are effected by adsorption
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] = std::max(P[i * Ncomp + j] / pt_init[i], 0.0);
-      sum += Yi[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] /= sum;
-    }
+  size_t LayerCounterSite = 0;
+  //std::vector<double> QeqTmp((Ngrid + 1) * Ncomp);
+  for(size_t k = 1; k < indexes.size(); ++k) {
+    for(size_t i = indexes[k-1]; i < indexes[k]; ++i) {
+      double sum = 0.0;
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] = std::max(P[i * Ncomp + j] / pt_init[i], 0.0);
+        sum += Yi[j];
+      }
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] /= sum;
+      }
 
-    iastPerformance += mixture.predictMixture(0, Yi, pt_init[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
-                                              &cachedPsi[i * maxIsothermTerms], Tgs[i]);
+      iastPerformance += mixture.predictMixture(LayerCounterSite, Yi, pt_init[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
+                                                &cachedPsi[i * maxIsothermTerms], Tgs[i]);
 
-    //iastPerformance1 += mixture.predictMixture(0, Yi1, pt_init1[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms], &cachedPsi1[i * maxIsothermTerms]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeq[i * Ncomp + j] = Ni[j];
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Qeq[i * Ncomp + j] = Ni[j];
+      }
     }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum1 = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] = std::max(P[i * Ncomp + j] / pt_init[i], 0.0);
-      sum1 += Yi1[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] /= sum1;
-    }
-
-    iastPerformance1 += mixture.predictMixture(1, Yi1, pt_init[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms1],   //clone
-                                              &cachedPsi1[i * maxIsothermTerms1], Tgs[i]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeq1[i * Ncomp + j] = Ni1[j];
-    }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum2 = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi2[j] = std::max(P[i * Ncomp + j] / pt_init[i], 0.0);
-      sum2 += Yi2[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi2[j] /= sum2;
-    }
-
-    iastPerformance2 += mixture.predictMixture(2, Yi2, pt_init[i], Xi2, Ni2, &cachedP02[i * Ncomp * maxIsothermTerms2],   //clone
-                                              &cachedPsi2[i * maxIsothermTerms2], Tgs[i]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeq2[i * Ncomp + j] = Ni2[j];
-    }
+    LayerCounterSite += 1;
   }
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
@@ -325,15 +308,6 @@ void Breakthrough::initialize()
     for (size_t j = 0; j < Ncomp; ++j)
     {
       Pt[i] += std::max(0.0, P[i * Ncomp + j]);
-    }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i) {       
-    for (size_t j = 0; j < Ncomp; ++j) {
-      size_t idx = i * Ncomp + j;
-      // Для i <= indexLeft массив Qeq уже правильно заполнен выше, можно пропустить
-      if (i >= indexMid && i < indexRight) Qeq[idx] = Qeq1[idx];
-      if (i >= indexRight) Qeq[idx] = Qeq2[idx];
     }
   }
 
@@ -679,78 +653,37 @@ void Breakthrough::computeStep(size_t step)
 
 void Breakthrough::computeEquilibriumLoadings()
 {
- for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
+  size_t LayerCounterSite = 0;
+  //std::vector<double> QeqTmp((Ngrid + 1) * Ncomp);
+  for(size_t k = 1; k < indexes.size(); ++k) {
+    for(size_t i = indexes[k-1]; i < indexes[k]; ++i) {
+
     Pt[i] = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
       Pt[i] += std::max(0.0, Pnew[i * Ncomp + j]);
     }
 
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] = std::max(Pnew[i * Ncomp + j] / Pt[i], 0.0);
-      sum += Yi[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] /= sum;
-    }
+      double sum = 0.0;
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] = std::max(Pnew[i * Ncomp + j] / Pt[i], 0.0);
+        sum += Yi[j];
+      }
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] /= sum;
+      }
 
-    iastPerformance += mixture.predictMixture(0, Yi, Pt[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
-                                              &cachedPsi[i * maxIsothermTerms], Tgsnew[i]);
+      iastPerformance += mixture.predictMixture(LayerCounterSite, Yi, Pt[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
+                                                &cachedPsi[i * maxIsothermTerms], Tgsnew[i]);
 
-    //iastPerformance1 += mixture.predictMixture(0, Yi1, pt_init1[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms], &cachedPsi1[i * maxIsothermTerms]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeqnew[i * Ncomp + j] = Ni[j];
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Qeqnew[i * Ncomp + j] = Ni[j];
+      }
     }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum1 = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] = std::max(Pnew[i * Ncomp + j] / Pt[i], 0.0);
-      sum1 += Yi1[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] /= sum1;
-    }
-
-    iastPerformance1 += mixture.predictMixture(1, Yi1, Pt[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms1],   //clone
-                                              &cachedPsi1[i * maxIsothermTerms1], Tgsnew[i]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeqnew1[i * Ncomp + j] = Ni1[j];
-    }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum2 = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi2[j] = std::max(Pnew[i * Ncomp + j] / Pt[i], 0.0);
-      sum2 += Yi2[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi2[j] /= sum2;
-    }
-
-    iastPerformance2 += mixture.predictMixture(2, Yi2, Pt[i], Xi2, Ni2, &cachedP02[i * Ncomp * maxIsothermTerms2],   //clone
-                                              &cachedPsi2[i * maxIsothermTerms2], Tgsnew[i]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeqnew2[i * Ncomp + j] = Ni2[j];
-    }
+    LayerCounterSite += 1;
   }
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
@@ -762,14 +695,6 @@ void Breakthrough::computeEquilibriumLoadings()
     }
   }
 
-  for (size_t i = 0; i < Ngrid + 1; ++i) {       
-    for (size_t j = 0; j < Ncomp; ++j) {
-      size_t idx = i * Ncomp + j;
-      // Для i <= indexLeft массив Qeq уже правильно заполнен выше, можно пропустить
-      if (i >= indexMid && i < indexRight) Qeqnew[idx] = Qeqnew1[idx];
-      if (i >= indexRight) Qeqnew[idx] = Qeqnew2[idx];
-    }
-  }
 
   // check the total pressure at the outlet, it should not be negative
   if (Pt[0] + dptdx * L < 0.0)
@@ -795,7 +720,7 @@ void Breakthrough::computeFirstDerivatives2(
     // =========================================================
    
     for (size_t j = 0; j < Ncomp; ++j) {
-        dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
+        dqdt[0 * Ncomp + j] = components[j].Kl_values[0] * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
         dpdt[0 * Ncomp + j] = 0.0; // P_in фиксировано
         dTdt[0] = 0.0;             // T_in фиксировано
         dTdtWall[0] = 0.0;
@@ -804,134 +729,55 @@ void Breakthrough::computeFirstDerivatives2(
     // =========================================================
     // 2. ВНУТРЕННИЕ ТОЧКИ (Цикл по пространству)
     // =========================================================
+    size_t layerCounter = 0;
     for (size_t i = 1; i < Ngrid; i++)
     {
-        double sumH = 0.0;      
-        double C_adsorbed_total = 0.0; 
+      if (i == indexes[layerCounter + 1]) {
+        layerCounter += 1;
+      }
+      double sumH = 0.0;      
+      double C_adsorbed_total = 0.0; 
 
       // Left points //
-      if (i <= indexLeft) { 
-             // LAYER 0
-             for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-                dqdt[i * Ncomp + j] = components[j].Kl * driving_force;
-                sumH += components[j].dH * components[j].Kl * driving_force;
-                C_adsorbed_total += 0; 
-             }
+
+      // LAYER 0
+      for (size_t j = 0; j < Ncomp; ++j) {
+        double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+        dqdt[i * Ncomp + j] = components[j].Kl_values[layerCounter] * driving_force;
+        sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[layerCounter] * driving_force;
+        C_adsorbed_total += 0; 
+      }
+
 
         double dVdz = (v[i] - v[i-1]) * idx; 
         double WorkExpansion = Pt[i] * dVdz * 0; 
 
-        double Numerator = lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                         - epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
-                         + (1.0 - epsilon) * rho_p * sumH 
-                         - 4.0 * h_in * (Tmp[i] - Tw[i]) / D_column_inner
-                         - epsilon * WorkExpansion;
+        double Numerator = lambda_x_layer[layerCounter] * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
+                         - eps[layerCounter] * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
+                         + (1.0 - eps[layerCounter]) * rho_particle[layerCounter] * sumH 
+                         - 4.0 * h_in_layer[layerCounter] * (Tmp[i] - Tw[i]) / D_column_inner
+                         - eps[layerCounter] * WorkExpansion;
 
-        double DenomTerm = (Pt[i] / (R * Tmp[i])) * epsilon * Cpg_mix[i] 
-                         + (1.0 - epsilon) * rho_p * (Cps + C_adsorbed_total);
+        double DenomTerm = (Pt[i] / (R * Tmp[i])) * eps[layerCounter] * Cpg_mix[i] 
+                         + (1.0 - eps[layerCounter]) * rho_particle[layerCounter] * (Cps_layer[layerCounter] + C_adsorbed_total);
         
         dTdt[i] = Numerator / DenomTerm;
 
-        dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+        dTdtWall[i] = (4 * D_column_inner * h_in_layer[layerCounter] * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                      + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
 
         for (size_t j = 0; j < Ncomp; ++j) {
             double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            
             // Полная формула сразу:
             dpdt[i * Ncomp + j] = 
                   (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                + components[j].D * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                - prefactorLeft[j] * Tmp[i] * driving_force 
+                + components[j].D_values[layerCounter] * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
+                - prefactors[i * Ncomp + j] * Tmp[i] * driving_force 
                 + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
                 + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
       }
+
     }
-
-    // Mid points //
-
-    if (i >= indexMid && i < indexRight) { 
-             // LAYER 1
-        for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            dqdt[i * Ncomp + j] = components[j].Kl1 * driving_force;
-            sumH += components[j].dH1 * components[j].Kl1 * driving_force;
-            C_adsorbed_total += 0; 
-        }
-
-        
-        double dVdz = (v[i] - v[i-1]) * idx; 
-        double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
-
-        double Numerator = lambda_ax_1 * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                         - epsilon1 * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
-                         + (1.0 - epsilon1) * rho_p1 * sumH 
-                         - 4.0 * h_in_1 * (Tmp[i] - Tw[i]) / D_column_inner
-                         - epsilon1 * WorkExpansion;
-
-        double DenomTerm = (Pt[i] / (R * Tmp[i])) * epsilon1 * Cpg_mix[i] 
-                         + (1.0 - epsilon1) * rho_p1 * (Cps_1 + C_adsorbed_total);
-        
-        dTdt[i] = Numerator / DenomTerm;
-
-        dTdtWall[i] = (4 * D_column_inner * h_in_1 * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                     + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
-
-        for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            
-            // Полная формула сразу:
-            dpdt[i * Ncomp + j] = 
-                  (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                - prefactorMiddle[j] * Tmp[i] * driving_force 
-                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
-      }
-    }
-
-    // Right Points 
-    if (i >= indexRight) { 
-             // LAYER 1
-        for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            dqdt[i * Ncomp + j] = components[j].Kl2 * driving_force;
-            sumH += components[j].dH2 * components[j].Kl2 * driving_force;
-            C_adsorbed_total += 0; 
-        }
-
-        
-        double dVdz = (v[i] - v[i-1]) * idx; 
-        double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
-
-        double Numerator = lambda_ax_2 * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                         - epsilon2 * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
-                         + (1.0 - epsilon2) * rho_p2 * sumH 
-                         - 4.0 * h_in_2 * (Tmp[i] - Tw[i]) / D_column_inner
-                         - epsilon2 * WorkExpansion;
-
-        double DenomTerm = (Pt[i] / (R * Tmp[i])) * epsilon2 * Cpg_mix[i] 
-                         + (1.0 - epsilon2) * rho_p2 * (Cps_2 + C_adsorbed_total);
-        
-        dTdt[i] = Numerator / DenomTerm;
-
-        dTdtWall[i] = (4 * D_column_inner * h_in_2 * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                     + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
-
-        for (size_t j = 0; j < Ncomp; ++j) {
-            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-            
-            // Полная формула сразу:
-            dpdt[i * Ncomp + j] = 
-                  (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                + components[j].D2 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[i] * driving_force 
-                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i];
-      }
-    }
-  }
 
    // =========================================================
     // 3. ПОСЛЕДНЯЯ ТОЧКА (i = Ngrid)
@@ -943,22 +789,22 @@ void Breakthrough::computeFirstDerivatives2(
         // A. Сначала q и H (чтобы найти dTdt)
         for (size_t j = 0; j < Ncomp; ++j) {
              double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             dqdt[Ngrid * Ncomp + j] = components[j].Kl2 * driving_force;
-             sumH += components[j].dH2 * components[j].Kl2 * driving_force; 
+             dqdt[Ngrid * Ncomp + j] = components[j].Kl_values[layerCounter] * driving_force;
+             sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[layerCounter] * driving_force; 
         }
 
         // B. Считаем dTdt
         double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx; 
         double WorkExpansion = Pt[Ngrid] * dVdz * 0; 
 
-        double Numerator = lambda_ax_2 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
+        double Numerator = lambda_x_layer[layerCounter] * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
                          - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
-                         + (1 - epsilon2) * rho_p2 * sumH 
-                         - 4 * h_in_2 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
-                         - epsilon2 * WorkExpansion;
+                         + (1 - eps[layerCounter]) * rho_particle[layerCounter] * sumH 
+                         - 4 * h_in_layer[layerCounter] * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
+                         - eps[layerCounter] * WorkExpansion;
 
-        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon2 * Cpg_mix[Ngrid] 
-                         + (1 - epsilon2) * rho_p2 * Cps_2;
+        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * eps[layerCounter] * Cpg_mix[Ngrid] 
+                         + (1 - eps[layerCounter]) * rho_particle[layerCounter] * Cps_layer[layerCounter];
         
         dTdt[Ngrid] = Numerator / DenomTerm;
 
@@ -968,16 +814,14 @@ void Breakthrough::computeFirstDerivatives2(
              
              dpdt[Ngrid * Ncomp + j] = 
                   (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx 
-                + components[j].D2 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[Ngrid] * driving_force
+                + components[j].D_values[layerCounter] * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
+                - prefactors[Ngrid * Ncomp + j] * Tmp[Ngrid] * driving_force
                 + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
         }
 
-        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_2 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_layer[layerCounter] * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                         + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
     }
-
-
 }
 
 void Breakthrough::computeCpgMix(std::vector<double> &Pi) {
@@ -1001,61 +845,30 @@ void Breakthrough::computeVelocityTemperatureLight()
   Vnew[0] = v_in;
 
   // middle gridpoints
+  size_t layerCounter = 0;
   for (size_t i = 1; i < Ngrid; ++i)
   {
-    // sum = derivative at the actual gridpoint i
-    if (i <= indexLeft) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT DER!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
+    if (i == indexes[layerCounter + 1]) {
+        layerCounter += 1;
+    }
     double sum = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
       sum =
-          sum - prefactorLeft[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-          components[j].D * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+          sum - prefactors[i * Ncomp + j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
+          components[j].D_values[layerCounter] * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
     Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
   }
-
-  if (i >= indexMid && i < indexRight) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT DER=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum - prefactorMiddle[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D1) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
-    }
-    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
-  }
-
-  if (i >= indexRight) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT DER=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexRight << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum - prefactorRight[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-            (components[j].D2 ) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
-    }
-    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
-  }
-}
 
   // last grid point
   double sum = 0.0;
   for (size_t j = 0; j < Ncomp; ++j)
   {
-    sum = sum - prefactorRight[j] * Tgsnew[Ngrid] * (Qeqnew[Ngrid * Ncomp + j] - Qnew[Ngrid * Ncomp + j]) +
-          components[j].D2 * (Pnew[(Ngrid - 1) * Ncomp + j] - Pnew[Ngrid * Ncomp + j]) * idx2;
+    sum = sum - prefactors[Ngrid * Ncomp + j] * Tgsnew[Ngrid] * (Qeqnew[Ngrid * Ncomp + j] - Qnew[Ngrid * Ncomp + j]) +
+          components[j].D_values[layerCounter] * (Pnew[(Ngrid - 1) * Ncomp + j] - Pnew[Ngrid * Ncomp + j]) * idx2;
   }
   //double thermal_expansion = Vnew[Ngrid] * (Tgsnew[Ngrid] - Tgsnew[Ngrid-1]) / Tgsnew[Ngrid]; // must be zero T[N] = T[N-1]
   // explicit version
@@ -1073,13 +886,27 @@ std::string Breakthrough::repr() const
   s += "Temperature:                           " + std::to_string(T) + " [K]\n";
   s += "RelRight:                              " + std::to_string(relRight) + " [K]\n";
   s += "RelLeft:                               " + std::to_string(relLeft) + " [K]\n";
-  s += "NCOMP:                               " + std::to_string(Ncomp) + " [K]\n";
+  s += "NCOMP:                               " + std::to_string(Ncomp) + " [-]\n";
   s += "Column length:                         " + std::to_string(L) + " [m]\n";
-  s += "Column void-fraction for left layer:                  " + std::to_string(epsilon) + " [-]\n";
-  s += "Column void-fraction for left right:                  " + std::to_string(epsilon1) + " [-]\n";
-  s += "Particle density:                      " + std::to_string(rho_p) + " [kg/m^3]\n";
-  s += "2nd Particle density:                  " + std::to_string(rho_p1) + " [kg/m^3]\n";
-  s += "3rd Particle density:                  " + std::to_string(rho_p2) + " [kg/m^3]\n";
+  for (size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Column void-fraction for layer " + std::to_string(i) + ":                  " + std::to_string(eps[i]) + " [-]\n";
+  }
+  for(size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Particle density for layer " + std::to_string(i) + ":                      " + std::to_string(rho_particle[i]) + " [kg/m^3]\n";
+  }
+  for(size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Particle heat capacity for layer " + std::to_string(i) + ":              " + std::to_string(Cps_layer[i]) + " [J/kg/K]\n";
+  }
+   s += "Wall density:                          " + std::to_string(rho_wall) + " [kg/m^3]\n";
+   s += "Wall heat capacity:                    " + std::to_string(Cpw) + " [J/kg/K]\n";
+   s += "Wall thermal conductivity:             " + std::to_string(lambda_w) + " [W/m/K]\n";
+  for (size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Axial thermal conductivity for layer " + std::to_string(i) + ":          " + std::to_string(lambda_x_layer[i]) + " [W/m/K]\n";
+  }
   s += "X-Coord of the 1st boundary:               " + std::to_string(boundaryCoordinate) + " [m]\n";
   s += "X-Coord of the 2nd boundary:               " + std::to_string(boundaryCoordinate1) + " [m]\n";
   s += "Total pressure:                        " + std::to_string(p_total) + " [Pa]\n";

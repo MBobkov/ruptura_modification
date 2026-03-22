@@ -20,10 +20,11 @@
  * fitness evaluation, and generating representations for plotting.
  */
 struct MultiSiteIsotherm
-{
+{ 
   size_t numberOfSites{0};        ///< The number of isotherm sites included in the model for 1st layer.
   size_t numberOfSites1{0};        ///< The number of isotherm sites included in the model for 2nd layer.
   size_t numberOfSites2{0};        ///< The number of isotherm sites included in the model for 3rd layer.
+  std::vector<size_t> NumbersOfSites{}; ///< A vector to store the loading contributions from each site, used for inverse computations.
   std::vector<Isotherm> sites{};  ///< A vector containing the individual isotherm site objects.
 
   size_t numberOfParameters{0};  ///< The total number of parameters across all isotherm sites.
@@ -132,34 +133,23 @@ struct MultiSiteIsotherm
    * \return The total adsorption value.
    */
   inline double value(size_t site, double pressure, double Tmp) const
+{
+  double sum = 0.0;
+  
+  // Вычисляем стартовый индекс изотермы для нужного слоя
+  size_t start_index = 0;
+  for (size_t i = 0; i < site; ++i) {
+      start_index += NumbersOfSites[i];
+  }
+
+  // Считаем сумму, начиная с правильного индекса
+  for (size_t k = start_index; k < start_index + NumbersOfSites[site]; ++k)     
   {
-    double sum = 0.0;
-    if (site == 0) {
-      for (size_t i = 0; i < numberOfSites; ++i)                                // value function changed for two layers model
-    {
-      sum += sites[i].value(pressure, Tmp);
-    }
+    sum += sites[k].value(pressure, Tmp);
   }
 
-    if (site == 1) {
-      for (size_t i = numberOfSites; i < numberOfSites1 + numberOfSites; ++i)     
-    {
-      sum += sites[i].value(pressure, Tmp);
-    }
-
-    }
-
-    if (site == 2) {
-      for (size_t i = numberOfSites1; i < numberOfSites1 + numberOfSites2; ++i)     
-    {
-      sum += sites[i].value(pressure, Tmp);
-    }
-
-    }
-
-    return sum;
-    
-  }
+  return sum;
+}
 
   /**
    * \brief Computes the adsorption value for a specific site at a given pressure.
@@ -190,28 +180,18 @@ struct MultiSiteIsotherm
   inline double psiForPressure(size_t site, double pressure, double Tmp) const
   {
     double sum = 0.0;
-
-    if (site == 0) {
-      for (size_t i = 0; i < numberOfSites; ++i)                                // value function changed for two layers model
-    {
-      sum += sites[i].psiForPressure(pressure, Tmp);                                 // sites = [Isotherm1Layer1, Isotherm2Layer1, Isotherm1Layer2, Isotherm2Layer2]
-    }
-  }
-
-    if (site == 1) {
-      for (size_t i = numberOfSites; i < numberOfSites1 + numberOfSites; ++i)     
-    {
-      sum += sites[i].psiForPressure(pressure, Tmp);
+  
+    // Вычисляем стартовый индекс изотермы для нужного слоя
+    size_t start_index = 0;
+    for (size_t i = 0; i < site; ++i) {
+        start_index += NumbersOfSites[i];
     }
 
-    }
-    
-    if (site == 2) {
-      for (size_t i = numberOfSites1; i < numberOfSites2 + numberOfSites1; ++i)     
+    // Считаем сумму, начиная с правильного индекса
+    for (size_t k = start_index; k < start_index + NumbersOfSites[site]; ++k)     
     {
-      sum += sites[i].psiForPressure(pressure, Tmp);
+      sum += sites[k].psiForPressure(pressure, Tmp);
     }
-  }
 
     return sum;
     

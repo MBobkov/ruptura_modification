@@ -55,7 +55,9 @@ struct Component
   double dH2;
   double Cpg;                  ///< Gas specific heat capacity [J/(kg·K)]
   bool isCarrierGas{false};    ///< Flag indicating if this is the carrier gas.
-
+  std::vector<double> Kl_values{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
+  std::vector<double> D_values{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
+  std::vector<double> dH_values{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
   /**
    * \brief Prints the component information to the console.
    *

@@ -132,10 +132,11 @@ int parseBoolean(const std::string& arguments, const std::string& keyword, size_
   throw std::runtime_error(errorString);
 }
 
-InputReader::InputReader(const std::string fileName) : components()
+InputReader::InputReader(const std::string fileName) : components(), BoundaryCoords()
 {
 
   components.reserve(16);
+  BoundaryCoords.reserve(16);
 
   std::ifstream fileInput{fileName};
   std::string errorOpeningFile = "Required input file '" + fileName + "' does not exist";
@@ -280,54 +281,63 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->columnVoidFraction = value;
+        eps.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "ColumnVoidFraction_1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->columnVoidFraction_1 = value;
+        eps.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "ColumnVoidFraction_2"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->columnVoidFraction_2 = value;
+        eps.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "ParticleDensity"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->particleDensity = value;
+        rho_particle.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "ParticleDensity_1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->particleDensity1 = value;
+        rho_particle.push_back(value);
         continue;
       }
        if (caseInSensStringCompare(keyword, "ParticleDensity_2"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->particleDensity2 = value;
+        rho_particle.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "Lambda_ax"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->lambda_ax = value;
+        lambda_x_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "Lambda_ax_1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->lambda_ax_1 = value;
+        lambda_x_layer.push_back(value);
         continue;
       }
        if (caseInSensStringCompare(keyword, "Lambda_ax_2"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->lambda_ax_2 = value;
+        lambda_x_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "StageTime"))
@@ -358,6 +368,7 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->h_in = value;
+        h_in_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "RampTimeBD"))
@@ -394,12 +405,14 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->h_in_1 = value;
+         h_in_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "h_in_2"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->h_in_2 = value;
+         h_in_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "h_out"))
@@ -564,12 +577,14 @@ InputReader::InputReader(const std::string fileName) : components()
       if (caseInSensStringCompare(keyword, "BoundaryCoord"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
+        BoundaryCoords.push_back(value);
         this->boundary_coord = value;
         continue;
       }
       if (caseInSensStringCompare(keyword, "BoundaryCoord1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
+        BoundaryCoords.push_back(value);
         this->boundary_coord1 = value;
         continue;
       }
@@ -583,18 +598,21 @@ InputReader::InputReader(const std::string fileName) : components()
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->Cps = value;
+        Cps_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "Cps_1"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->Cps_1 = value;
+        Cps_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "Cps_2"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->Cps_2 = value;
+        Cps_layer.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "Cpw"))
@@ -696,6 +714,7 @@ InputReader::InputReader(const std::string fileName) : components()
         if (numberOfLayers == 1) { components[numberOfComponents - 1].Kl = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].Kl1 = value; }
         if (numberOfLayers == 3) { components[numberOfComponents - 1].Kl2 = value; }
+        components[numberOfComponents - 1].Kl_values.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "AxialDispersionCoefficient"))
@@ -704,6 +723,7 @@ InputReader::InputReader(const std::string fileName) : components()
         if (numberOfLayers == 1) { components[numberOfComponents - 1].D = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].D1 = value; }
         if (numberOfLayers == 3) { components[numberOfComponents - 1].D2 = value; }
+        components[numberOfComponents - 1].D_values.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "AdsorptionHeat"))
@@ -712,6 +732,7 @@ InputReader::InputReader(const std::string fileName) : components()
         if (numberOfLayers == 1) { components[numberOfComponents - 1].dH = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].dH1 = value; }
         if (numberOfLayers == 3) { components[numberOfComponents - 1].dH2 = value; }
+        components[numberOfComponents - 1].dH_values.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "MolarMass"))
@@ -732,6 +753,7 @@ InputReader::InputReader(const std::string fileName) : components()
         if (numberOfLayers == 1) { components[numberOfComponents - 1].isotherm.numberOfSites = value; }
         if (numberOfLayers == 2) { components[numberOfComponents - 1].isotherm.numberOfSites1 = value; }
         if (numberOfLayers == 3) { components[numberOfComponents - 1].isotherm.numberOfSites2 = value; }
+        components[numberOfComponents - 1].isotherm.NumbersOfSites.push_back(value);
         continue;
       }
 
@@ -1006,6 +1028,7 @@ InputReader::InputReader(const std::string fileName) : components()
       components[j].dH = 0;
       components[j].dH1 = 0;
       components[j].dH2 = 0;
+      std::fill(components[j].dH_values.begin(), components[j].dH_values.end(), 0.0);
     }
   }
   }

@@ -170,6 +170,7 @@ struct Breakthrough
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
   double boundaryCoordinate1;  ///< boundary x 2nd coord 
+  size_t numberOfLayers{0};                              ///< Number of layers in the column.
 
   
   
@@ -189,8 +190,6 @@ struct Breakthrough
   bool pulse;                                       ///< Pulsed inlet condition for breakthrough.
   double tpulse;                                    ///< Pulse time.
   MixturePrediction mixture;                        ///< MixturePrediction object for mixture predictions.
-  MixturePrediction mixture1;                        ///< MixturePrediction object for mixture predictions.
-  MixturePrediction mixture2;                        ///< MixturePrediction object for mixture predictions.
   size_t maxIsothermTerms;                          ///< Maximum number of isotherm terms.
   size_t maxIsothermTerms1;                          ///< Maximum number of isotherm terms.
   size_t maxIsothermTerms2;                          ///< Maximum number of isotherm terms.
@@ -199,9 +198,7 @@ struct Breakthrough
   std::pair<size_t, size_t> iastPerformance2{0, 0};  ///< Performance metrics for IAST calculations.
 
   // vector of size 'Ncomp'
-  std::vector<double> prefactorLeft;  ///< Precomputed factors for mass transfer.
-  std::vector<double> prefactorMiddle;  ///< Precomputed factors for mass transfer.
-  std::vector<double> prefactorRight;  ///< Precomputed factors for mass transfer.
+  std::vector<double> prefactors;  ///< Precomputed factors for mass transfer.
   std::vector<double> Yi;         ///< Ideal gas mole fractions for each component.
   std::vector<double> Yi1;         ///< Ideal gas mole fractions for each component.
   std::vector<double> Yi2;         ///< Ideal gas mole fractions for each component.
@@ -251,8 +248,15 @@ struct Breakthrough
   std::vector<double> Cpg_mix;  ///< Average molar mass
   std::vector<double> Tinit;  ///< Tinit
   std::vector<double> DPtdt;
+  std::vector<double> Bd;
+  std::vector<size_t> indexes;
+  std::vector<double> rho_particle;  ///< Particle density along the column (for layered columns)
+  std::vector<double> eps; ///< Void fraction along the column (for layered columns)
+  std::vector<double> Cps_layer; ///< Specific heat capacity of the adsorbent along the column (for layered columns)
+  std::vector<double> lambda_x_layer; ///< Effective axial thermal conductivity of the layer along the column (for layered columns)
+  std::vector<double> h_in_layer; ///< internal heat transfer coefficient (layer→wall
   bool CarrierGasExistance{false};
-  bool IsothermalRegime{false};
+  //bool IsothermalRegime{false};
 
   enum class IntegrationScheme
   {
