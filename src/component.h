@@ -55,9 +55,14 @@ struct Component
   double dH2;
   double Cpg;                  ///< Gas specific heat capacity [J/(kg·K)]
   bool isCarrierGas{false};    ///< Flag indicating if this is the carrier gas.
+  bool Isothermal{false};      ///< Flag indicating if the mass transfer coefficient is isothermal (true) or has Arrhenius temperature dependence (false).
+  std::vector<double> Kl_values_input{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
   std::vector<double> Kl_values{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
   std::vector<double> D_values{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
   std::vector<double> dH_values{}; ///< Vector to store mass transfer coefficients for each isotherm site, if needed.
+  std::vector<double> k0_values{}; //< Vector to store k0 for Arrhenius temperature dependence for each isotherm site, if needed.
+  std::vector<double> Ea_values{}; ///< Vector to store activation energy for Arrhenius temperature dependence for each isotherm site, if needed. 
+
   /**
    * \brief Prints the component information to the console.
    *
@@ -73,4 +78,6 @@ struct Component
    * \return A string representing the Component.
    */
   std::string repr() const;
+
+  void Kl_func(double T, size_t layer, size_t indx);
 };

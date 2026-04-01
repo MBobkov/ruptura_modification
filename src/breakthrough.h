@@ -256,7 +256,7 @@ struct Breakthrough
   std::vector<double> lambda_x_layer; ///< Effective axial thermal conductivity of the layer along the column (for layered columns)
   std::vector<double> h_in_layer; ///< internal heat transfer coefficient (layer→wall
   bool CarrierGasExistance{false};
-  //bool IsothermalRegime{false};
+  bool IsothermalRegime{false};
 
   enum class IntegrationScheme
   {
@@ -370,6 +370,16 @@ struct Breakthrough
    * \brief Creates a script to generate a movie for the normalized partial pressures.
    */
   void createMovieScriptColumnPnormalized();
+
+    /**
+   * \brief Creates a script to generate a movie for the normalized partial pressures.
+   */
+  void createMovieScriptColumnKl();
+
+  /**
+   * \brief Updates the mass transfer coefficients based on the current temperature.
+   */
+  void Kl_update(std::vector<double> &Tmpgs);
 
 };
 

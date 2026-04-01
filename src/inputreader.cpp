@@ -284,20 +284,6 @@ InputReader::InputReader(const std::string fileName) : components(), BoundaryCoo
         eps.push_back(value);
         continue;
       }
-      if (caseInSensStringCompare(keyword, "ColumnVoidFraction_1"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        this->columnVoidFraction_1 = value;
-        eps.push_back(value);
-        continue;
-      }
-      if (caseInSensStringCompare(keyword, "ColumnVoidFraction_2"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        this->columnVoidFraction_2 = value;
-        eps.push_back(value);
-        continue;
-      }
       if (caseInSensStringCompare(keyword, "ParticleDensity"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
@@ -305,38 +291,10 @@ InputReader::InputReader(const std::string fileName) : components(), BoundaryCoo
         rho_particle.push_back(value);
         continue;
       }
-      if (caseInSensStringCompare(keyword, "ParticleDensity_1"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        this->particleDensity1 = value;
-        rho_particle.push_back(value);
-        continue;
-      }
-       if (caseInSensStringCompare(keyword, "ParticleDensity_2"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        this->particleDensity2 = value;
-        rho_particle.push_back(value);
-        continue;
-      }
       if (caseInSensStringCompare(keyword, "Lambda_ax"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
         this->lambda_ax = value;
-        lambda_x_layer.push_back(value);
-        continue;
-      }
-      if (caseInSensStringCompare(keyword, "Lambda_ax_1"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        this->lambda_ax_1 = value;
-        lambda_x_layer.push_back(value);
-        continue;
-      }
-       if (caseInSensStringCompare(keyword, "Lambda_ax_2"))
-      {
-        double value = parseDouble(arguments, keyword, lineNumber);
-        this->lambda_ax_2 = value;
         lambda_x_layer.push_back(value);
         continue;
       }
@@ -672,6 +630,7 @@ InputReader::InputReader(const std::string fileName) : components(), BoundaryCoo
 
         components.push_back(Component(numberOfComponents, componentName));
         numberOfComponents += 1;
+        components[numberOfComponents - 1].Isothermal = IsothermalRegime;
         continue;
       }
       if (caseInSensStringCompare(keyword, "FileName"))
@@ -711,27 +670,30 @@ InputReader::InputReader(const std::string fileName) : components(), BoundaryCoo
       if (caseInSensStringCompare(keyword, "MassTransferCoefficient"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
-        if (numberOfLayers == 1) { components[numberOfComponents - 1].Kl = value; }
-        if (numberOfLayers == 2) { components[numberOfComponents - 1].Kl1 = value; }
-        if (numberOfLayers == 3) { components[numberOfComponents - 1].Kl2 = value; }
-        components[numberOfComponents - 1].Kl_values.push_back(value);
+        components[numberOfComponents - 1].Kl_values_input.push_back(value);
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "K0"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].k0_values.push_back(value);
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "Ea"))
+      {
+        double value = parseDouble(arguments, keyword, lineNumber);
+        components[numberOfComponents - 1].Ea_values.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "AxialDispersionCoefficient"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
-        if (numberOfLayers == 1) { components[numberOfComponents - 1].D = value; }
-        if (numberOfLayers == 2) { components[numberOfComponents - 1].D1 = value; }
-        if (numberOfLayers == 3) { components[numberOfComponents - 1].D2 = value; }
         components[numberOfComponents - 1].D_values.push_back(value);
         continue;
       }
       if (caseInSensStringCompare(keyword, "AdsorptionHeat"))
       { 
         double value = parseDouble(arguments, keyword, lineNumber);
-        if (numberOfLayers == 1) { components[numberOfComponents - 1].dH = value; }
-        if (numberOfLayers == 2) { components[numberOfComponents - 1].dH1 = value; }
-        if (numberOfLayers == 3) { components[numberOfComponents - 1].dH2 = value; }
         components[numberOfComponents - 1].dH_values.push_back(value);
         continue;
       }

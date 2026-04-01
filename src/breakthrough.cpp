@@ -71,29 +71,14 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       Tamb(inputReader.Tamb),
       p_total(inputReader.totalPressure),
       dptdx(inputReader.pressureGradient),
-      epsilon(inputReader.columnVoidFraction),
-      epsilon1(inputReader.columnVoidFraction_1),
-      epsilon2(inputReader.columnVoidFraction_2),
-      rho_p(inputReader.particleDensity),
-      rho_p1(inputReader.particleDensity1),
-      rho_p2(inputReader.particleDensity2),
       rho_wall(inputReader.rho_w),
-      lambda_ax(inputReader.lambda_ax),
-      lambda_ax_1(inputReader.lambda_ax_1),
-      lambda_ax_2(inputReader.lambda_ax_2),
       lambda_w(inputReader.lambda_w),
       D_column_out(inputReader.D_column_out),
       D_column_inner(inputReader.D_column_inner),
       h_in(inputReader.h_in),
-      h_in_1(inputReader.h_in_1),
-      h_in_2(inputReader.h_in_2),
       h_out(inputReader.h_out),
       Cps(inputReader.Cps),
-      Cps_1(inputReader.Cps_1),
-      Cps_2(inputReader.Cps_2),
       Cpw(inputReader.Cpw),
-      boundaryCoordinate(inputReader.boundary_coord),
-      boundaryCoordinate1(inputReader.boundary_coord1),
       numberOfLayers(inputReader.numberOfLayers),
       v_in(inputReader.columnEntranceVelocity),
       L(inputReader.columnLength),
@@ -105,18 +90,10 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       tpulse(inputReader.pulseTime),
       mixture(inputReader),
       maxIsothermTerms(inputReader.maxIsothermTerms),
-      maxIsothermTerms1(inputReader.maxIsothermTerms1),
-      maxIsothermTerms2(inputReader.maxIsothermTerms2),
       prefactors((Ngrid + 1) * Ncomp),
       Yi(Ncomp),
-      Yi1(Ncomp),
-      Yi2(Ncomp),
       Xi(Ncomp),
-      Xi1(Ncomp),
-      Xi2(Ncomp),
       Ni(Ncomp),
-      Ni1(Ncomp),
-      Ni2(Ncomp),
       V(Ngrid + 1),
       Vnew(Ngrid + 1),
       Pt(Ngrid + 1),
@@ -125,11 +102,7 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       Q((Ngrid + 1) * Ncomp),
       Qnew((Ngrid + 1) * Ncomp),
       Qeq((Ngrid + 1) * Ncomp),
-      Qeq1((Ngrid + 1) * Ncomp),
-      Qeq2((Ngrid + 1) * Ncomp),
       Qeqnew((Ngrid + 1) * Ncomp),
-      Qeqnew1((Ngrid + 1) * Ncomp),
-      Qeqnew2((Ngrid + 1) * Ncomp),
       Dpdt((Ngrid + 1) * Ncomp),
       Dpdtnew((Ngrid + 1) * Ncomp),
       Dqdt((Ngrid + 1) * Ncomp),
@@ -154,30 +127,9 @@ Breakthrough::Breakthrough(const InputReader &inputReader)
       Cps_layer(inputReader.Cps_layer),
       lambda_x_layer(inputReader.lambda_x_layer),
       h_in_layer(inputReader.h_in_layer),
-      CarrierGasExistance(inputReader.CarrierGasExistance)
+      CarrierGasExistance(inputReader.CarrierGasExistance),
+      IsothermalRegime(inputReader.IsothermalRegime)
 {
-
-  //std::cout << "IN CONSTRUCTOR!" << std::endl;
-  indexLeft = 0;
-  indexMid = 0;
-  indexRight = 0;
-
-   for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    if (boundaryCoordinate < static_cast<double>(i) * dx) {
-      indexLeft = i - 1;
-      indexMid = i;
-      break;
-    }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i) {
-    if (boundaryCoordinate1 < static_cast<double>(i) * dx) {
-      indexRight = i;
-      break;
-    }
-  }
-
   size_t temp_index = 0;
 
   indexes[0] = 0;
@@ -206,6 +158,27 @@ void Breakthrough::initialize()
 
   size_t layerCounter = 0;
 
+  std::fill(P.begin(), P.end(), 0.0);
+  std::fill(Q.begin(), Q.end(), 0.0);
+  std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
+  std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
+
+  for (size_t j = 0; j < Ncomp; ++j) {
+    components[j].Kl_values.resize(Ngrid + 1, 0.0);
+    
+    // ДОБАВИТЬ ЭТОТ БЛОК: Защита от пустых массивов для инертного газа
+    if (components[j].isCarrierGas) {
+        if (components[j].D_values.empty()) {
+            components[j].D_values.resize(numberOfLayers, 0.0);
+        }
+        if (components[j].dH_values.empty()) {
+            components[j].dH_values.resize(numberOfLayers, 0.0);
+        }
+    }
+  }
+
+  Kl_update(Tgs); // Grid-wise update of the mass transfer coefficients based on the initial temperature distribution
+
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
     if (i == indexes[layerCounter + 1]) {
@@ -213,23 +186,10 @@ void Breakthrough::initialize()
     }
     for (size_t j = 0; j < Ncomp; ++j)
     {
-      prefactors[i * Ncomp + j] = R * ((1.0 - eps[layerCounter]) / eps[layerCounter]) * ( rho_particle[layerCounter] ) * (components[j].Kl_values[layerCounter]);
+      prefactors[i * Ncomp + j] = R * ((1.0 - eps[layerCounter]) / eps[layerCounter]) * ( rho_particle[layerCounter] ) * (components[j].Kl_values[i]);
     }
   }
 
-   // for (size_t i = 0; i < Ngrid + 1; ++i)
-   // {
-   //   for (size_t j = 0; j < Ncomp; ++j)
-   //   {
-   //     std::cout << "prefactors[" << i << "][" << j << "] = " << prefactors[i * Ncomp + j] << std::endl;
-   //   }
-   // }
-  // set P and Q to zero
-  std::fill(P.begin(), P.end(), 0.0);
-  std::fill(Q.begin(), Q.end(), 0.0);
-  std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
-  std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
-  //std::fill(Tinit.begin(), Tinit.end(), Tgs[0]);   // Wall initial tempreture
 
   // initial pressure along the column
   std::vector<double> pt_init(Ngrid + 1);
@@ -346,6 +306,11 @@ void Breakthrough::run()
   movieStream << "# column " << column_nr++ << ": DTgsdt (derivative Tgs with t)" << std::endl;
   movieStream << "# column " << column_nr++ << ": DTWalldt (derivative Tw with t)" << std::endl;
 
+  for (size_t j = 0; j < Ncomp; ++j)
+  {
+    movieStream << "# column " << column_nr++ << ": component " << j << " Kl " << std::endl;
+  }
+
   for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
   {
     // compute new step
@@ -377,6 +342,11 @@ void Breakthrough::run()
                       << Dqdt[i * Ncomp + j] << " ";
         }
         movieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+
+         for (size_t j = 0; j < Ncomp; ++j)
+        {
+          movieStream << components[j].Kl_values[i] << " ";
+        }
         
         movieStream << "\n";
       }
@@ -547,6 +517,8 @@ void Breakthrough::computeStep(size_t step)
       Twnew[i] = Tw[i] + dt * DTdtWall[i];
   }
 
+  Kl_update(Tgsnew); // Grid-wise update of the mass transfer coefficients based on the new temperature distribution
+
   computeCpgMix(Pnew);
 
   computeEquilibriumLoadings();
@@ -578,6 +550,8 @@ void Breakthrough::computeStep(size_t step)
     Tgsnew[i] = 0.75 * Tgs[i] + 0.25 * Tgsnew[i] + 0.25 * dt * DTdtnew[i];
     Twnew[i] = 0.75 * Tw[i] + 0.25 * Twnew[i] + 0.25 * dt * DTdtWallnew[i];
   }
+
+  Kl_update(Tgsnew); // Grid-wise update of the mass transfer coefficients based on the new temperature distribution
 
   computeCpgMix(Pnew);
 
@@ -612,6 +586,8 @@ void Breakthrough::computeStep(size_t step)
     Twnew[i] = (1.0 / 3.0) * Tw[i] + (2.0 / 3.0) * Twnew[i] +
                             (2.0 / 3.0) * dt * DTdtWallnew[i];
   }
+
+  Kl_update(Tgsnew); // Grid-wise update of the mass transfer coefficients based on the new temperature distribution
 
   computeCpgMix(Pnew);
 
@@ -703,6 +679,25 @@ void Breakthrough::computeEquilibriumLoadings()
   }
 }
 
+void Breakthrough::Kl_update(std::vector<double> &Tmpgs)
+{
+  size_t layerCounter = 0;
+  double Tcurrent;
+
+  for (size_t i = 0; i < Ngrid + 1; ++i)
+  {
+    Tcurrent = Tmpgs[i];
+    if (i == indexes[layerCounter + 1]) {
+      layerCounter += 1;
+    }
+    for (size_t j = 0; j < Ncomp; ++j)
+    {
+      components[j].Kl_func(Tcurrent, layerCounter, i);
+    }
+  }
+  
+}
+
 void Breakthrough::computeFirstDerivatives2(
     std::vector<double> &dqdt, 
     std::vector<double> &dpdt, 
@@ -743,8 +738,8 @@ void Breakthrough::computeFirstDerivatives2(
       // LAYER 0
       for (size_t j = 0; j < Ncomp; ++j) {
         double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-        dqdt[i * Ncomp + j] = components[j].Kl_values[layerCounter] * driving_force;
-        sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[layerCounter] * driving_force;
+        dqdt[i * Ncomp + j] = components[j].Kl_values[i] * driving_force;
+        sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[i] * driving_force;
         C_adsorbed_total += 0; 
       }
 
@@ -755,7 +750,7 @@ void Breakthrough::computeFirstDerivatives2(
         double Numerator = lambda_x_layer[layerCounter] * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
                          - eps[layerCounter] * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
                          + (1.0 - eps[layerCounter]) * rho_particle[layerCounter] * sumH 
-                         - 4.0 * h_in_layer[layerCounter] * (Tmp[i] - Tw[i]) / D_column_inner
+                         - 4.0 * h_in_layer[layerCounter] * (Tmp[i] - TmpWall[i]) / D_column_inner
                          - eps[layerCounter] * WorkExpansion;
 
         double DenomTerm = (Pt[i] / (R * Tmp[i])) * eps[layerCounter] * Cpg_mix[i] 
@@ -789,8 +784,8 @@ void Breakthrough::computeFirstDerivatives2(
         // A. Сначала q и H (чтобы найти dTdt)
         for (size_t j = 0; j < Ncomp; ++j) {
              double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             dqdt[Ngrid * Ncomp + j] = components[j].Kl_values[layerCounter] * driving_force;
-             sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[layerCounter] * driving_force; 
+             dqdt[Ngrid * Ncomp + j] = components[j].Kl_values[Ngrid] * driving_force;
+             sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[Ngrid] * driving_force; 
         }
 
         // B. Считаем dTdt
@@ -800,7 +795,7 @@ void Breakthrough::computeFirstDerivatives2(
         double Numerator = lambda_x_layer[layerCounter] * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
                          - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
                          + (1 - eps[layerCounter]) * rho_particle[layerCounter] * sumH 
-                         - 4 * h_in_layer[layerCounter] * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
+                         - 4 * h_in_layer[layerCounter] * (Tmp[Ngrid] - TmpWall[Ngrid]) / D_column_inner
                          - eps[layerCounter] * WorkExpansion;
 
         double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * eps[layerCounter] * Cpg_mix[Ngrid] 
@@ -1038,6 +1033,7 @@ void Breakthrough::createMovieScripts()
   makeMovieStream << "CALL make_movie_Pnorm.bat %1 %2 %3 %4\n";
   makeMovieStream << "CALL make_movie_Dpdt.bat %1 %2 %3 %4\n";
   makeMovieStream << "CALL make_movie_Dqdt.bat %1 %2 %3 %4\n";
+  makeMovieStream << "CALL make_movie_Kl.bat %1 %2 %3 %4\n";
 #else
   std::ofstream makeMovieStream("make_movies");
   makeMovieStream << "#!/bin/sh\n";
@@ -1070,6 +1066,7 @@ void Breakthrough::createMovieScripts()
   createMovieScriptColumnDpdt();
   createMovieScriptColumnDqdt();
   createMovieScriptColumnPnormalized();
+  createMovieScriptColumnKl();
 }
 
 // -crf 18: the range of the CRF scale is 0–51, where 0 is lossless, 23 is the default,
@@ -1239,12 +1236,102 @@ void Breakthrough::createMovieScriptColumnT()
   stream << "max=STATS_max\n";
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
-  stream << "set yrange[0.6*max:1.2*max]\n";
+  stream << "set yrange[0.4*max:1.2*max]\n";
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";
   stream << "    " << "'column.data'" << " us 1:" << std::to_string(4 + 6 * Ncomp) << " index ev*i notitle with li lt 1,\\\n";
   stream << "    " << "'column.data'" << " us 1:"<< std::to_string(4 + 6 * Ncomp) << " index ev*i notitle with po lt 1\n";
+  stream << "}\n";
+}
+
+void Breakthrough::createMovieScriptColumnKl()
+{
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  std::ofstream makeMovieStream("make_movie_Kl.bat");
+#else
+  std::ofstream makeMovieStream("make_movie_Kl");
+  makeMovieStream << "#!/bin/sh\n";
+  makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
+#endif
+  makeMovieStream << movieScriptTemplate("Kl");
+
+#if (__cplusplus >= 201703L)
+  std::filesystem::path path{"make_movie_Kl"};
+  std::filesystem::permissions(path, std::filesystem::perms::owner_exec, std::filesystem::perm_options::add);
+#else
+  chmod("make_movie_Kl", S_IRWXU);
+#endif
+
+  std::ofstream stream("plot_column_Kl");
+
+  stream << "set encoding utf8\n";
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  stream << "set terminal pngcairo size ARG2,ARG3 enhanced font 'Arial,10'\n";
+  stream << "set xlabel 'Adsorber position / [m]' font 'Arial,14'\n";
+  stream << "set ylabel 'Mass transfer coeff., {/Arial-Italic Kl} / [1/s]' offset 0.0,0 font 'Arial,14'\n";
+  stream << "set key outside top center horizontal samplen 2.5 height 0.5 spacing 1.5 font 'Arial, 10'\n";
+#else
+  stream << "set terminal pngcairo size ARG2,ARG3 enhanced font 'Helvetica,10'\n";
+  stream << "set xlabel 'Adsorber position / [m]' font 'Helvetica,18'\n";
+  stream << "set ylabel 'Mass transfer coeff., {/Helvetica-Italic Kl} / [1/s]' offset 0.0,0 font 'Helvetica,18'\n";
+  stream << "set key outside top center horizontal samplen 2.5 height 0.5 spacing 1.5 font 'Helvetica, 10'\n";
+#endif
+
+  // colorscheme from book 'gnuplot in action', listing 12.7
+  stream << "set linetype 1 pt 5 ps 1 lw 4 lc rgb '0xee0000'\n";
+  stream << "set linetype 2 pt 7 ps 1 lw 4 lc rgb '0x008b00'\n";
+  stream << "set linetype 3 pt 9 ps 1 lw 4 lc rgb '0x0000cd'\n";
+  stream << "set linetype 4 pt 11 ps 1 lw 4 lc rgb '0xff3fb3'\n";
+  stream << "set linetype 5 pt 13 ps 1 lw 4 lc rgb '0x00cdcd'\n";
+  stream << "set linetype 6 pt 15 ps 1 lw 4 lc rgb '0xcd9b1d'\n";
+  stream << "set linetype 7 pt  4 ps 1 lw 4 lc rgb '0x8968ed'\n";
+  stream << "set linetype 8 pt  6 ps 1 lw 4 lc rgb '0x8b8b83'\n";
+  stream << "set linetype 9 pt  8 ps 1 lw 4 lc rgb '0x00bb00'\n";
+  stream << "set linetype 10 pt 10 ps 1 lw 4 lc rgb '0x1e90ff'\n";
+  stream << "set linetype 11 pt 12 ps 1 lw 4 lc rgb '0x8b2500'\n";
+  stream << "set linetype 12 pt 14 ps 1 lw 4 lc rgb '0x000000'\n";
+
+  stream << "set bmargin 4\n";
+  stream << "set key title '" << displayName << " {/:Italic T}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
+         << " kPa'\n";
+  stream << "stats 'column.data' nooutput\n";
+  stream << "max = 0.0;\n";
+  
+  // ИСПРАВЛЕНО: Поиск максимума по правильным колонкам Kl
+  for (size_t i = 0; i < Ncomp; i++) {
+    int col = 8 + static_cast<int>(Ncomp * 6) + static_cast<int>(i); 
+    stream << "  stats 'column.data' us " << col << " nooutput\n";
+    stream << "  if (max < STATS_max) { max = STATS_max; }\n";
+  }
+  
+  stream << "stats 'column.data' us 1 nooutput\n";
+  stream << "set xrange[0:STATS_max]\n";
+  
+  // Добавляем защиту на случай, если max = 0 (чтобы график не сломался)
+  stream << "if (max == 0) { max = 1.0; }\n";
+  stream << "set yrange[0:1.1*max]\n";
+  
+  stream << "ev=int(ARG1)\n";
+  stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
+  stream << "  plot \\\n";
+  
+  // ИСПРАВЛЕНО: Отрисовка линий из правильных колонок Kl
+  for (size_t i = 0; i < Ncomp; i++)
+  {
+    int col = 8 + static_cast<int>(Ncomp * 6) + static_cast<int>(i);
+    stream << "    " << "'column.data'" << " us 1:" << col << " index ev*i notitle "
+           << " with li lt " << i + 1 << ",\\\n";
+  }
+  
+  // ИСПРАВЛЕНО: Отрисовка точек из правильных колонок Kl
+  for (size_t i = 0; i < Ncomp; i++)
+  {
+    int col = 8 + static_cast<int>(Ncomp * 6) + static_cast<int>(i);
+    stream << "    " << "'column.data'" << " us 1:" << col << " index ev*i title '"
+           << components[i].name << "'"
+           << " with po lt " << i + 1 << (i < Ncomp - 1 ? ",\\" : "") << "\n";
+  }
   stream << "}\n";
 }
 

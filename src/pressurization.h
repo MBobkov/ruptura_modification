@@ -165,6 +165,7 @@ struct Pressurization
   double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
+  size_t numberOfLayers{0}; 
   double ramp_time;
   double Pmin;
   bool InitialStage{true};
@@ -194,6 +195,7 @@ struct Pressurization
   std::pair<size_t, size_t> iastPerformance1{0, 0};  ///< Performance metrics for IAST calculations.
 
   // vector of size 'Ncomp'
+  std::vector<double> prefactors;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorLeft;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorLeftGP;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorRightGP;  ///< Precomputed factors for mass transfer.
@@ -240,6 +242,13 @@ struct Pressurization
   std::vector<double> Cpg_mix;  ///< Average molar mass
   std::vector<double> Tinit;  ///< Tinit
   std::vector<double> DPtdt;
+  std::vector<double> Bd;
+  std::vector<size_t> indexes;
+  std::vector<double> rho_particle;  ///< Particle density along the column (for layered columns)
+  std::vector<double> eps; ///< Void fraction along the column (for layered columns)
+  std::vector<double> Cps_layer; ///< Specific heat capacity of the adsorbent along the column (for layered columns)
+  std::vector<double> lambda_x_layer; ///< Effective axial thermal conductivity of the layer along the column (for layered columns)
+  std::vector<double> h_in_layer; ///< internal heat transfer coefficient (layer→wall
   bool CarrierGasExistance{false};
   bool IsothermalRegime{false};
   bool cycle{false};
@@ -263,12 +272,9 @@ struct Pressurization
    * \param p Partial pressures.
    */
   void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+                                           const std::vector<double> &q_eq, const std::vector<double> &q,
                                            const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);
 
-  void computeFirstDerivatives2(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);                                         
 
   /**
    * \brief Computes a single simulation step.
@@ -385,5 +391,14 @@ struct Pressurization
      * \brief run function with streams.
      */
     void run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream);
+    /**
+   * \brief Creates a script to generate a movie for the normalized partial pressures.
+   */
+    void createMovieScriptColumnKl();
+    /**
+    * \brief Updates the mass transfer coefficients based on the current temperature.
+   */
+    void Kl_update(std::vector<double> &Tmpgs);
+
 };
 
