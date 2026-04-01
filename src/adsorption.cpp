@@ -89,6 +89,7 @@ Adsorption::Adsorption(const InputReader &inputReader)
       Cps_1(inputReader.Cps_1),
       Cpw(inputReader.Cpw),
       boundaryCoordinate(inputReader.boundary_coord),
+      numberOfLayers(inputReader.numberOfLayers),
       timeStage(inputReader.TimeStage),
       v_in(inputReader.columnEntranceVelocityAds),
       L(inputReader.columnLength),
@@ -102,6 +103,7 @@ Adsorption::Adsorption(const InputReader &inputReader)
       mixture1(inputReader),
       maxIsothermTerms(inputReader.maxIsothermTerms),
       maxIsothermTerms1(inputReader.maxIsothermTerms1),
+      prefactors((Ngrid + 1) * Ncomp),
       prefactorLeft(Ncomp),
       prefactorLeftGP(Ncomp),
       prefactorRightGP(Ncomp),
@@ -142,205 +144,80 @@ Adsorption::Adsorption(const InputReader &inputReader)
       Mol_mix(Ngrid + 1),
       Cpg_mix(Ngrid + 1),
       DPtdt(Ngrid + 1),
+      Bd(inputReader.BoundaryCoords),
+      indexes(numberOfLayers + 1),
+      rho_particle(inputReader.rho_particle),
+      eps(inputReader.eps),
+      Cps_layer(inputReader.Cps_layer),
+      lambda_x_layer(inputReader.lambda_x_layer),
+      h_in_layer(inputReader.h_in_layer),
       CarrierGasExistance(inputReader.CarrierGasExistance),
       IsothermalRegime(inputReader.IsothermalRegime),
       cycle(inputReader.Cycle)
 {
 
-  //std::cout << "IN CONSTRUCTOR!" << std::endl;
-  indexLeft = 0;
-  indexMid = 0;
-  indexRight = 0;
+  size_t temp_index = 0;
 
-   for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    if (boundaryCoordinate -  static_cast<double>(i) * dx < 0)  {
-       indexLeft = i - 1;
-       indexMid = 0;
-       indexRight = i;
-       break;
+  indexes[0] = 0;
+  indexes[numberOfLayers] = Ngrid + 1;
+
+  Bd.resize(numberOfLayers - 1);
+
+  for (size_t k = 0; k < numberOfLayers - 1; ++k) {
+    for (size_t i = temp_index; i < Ngrid + 1; ++i) {
+       if (Bd[k] < static_cast<double>(i) * dx) {
+         indexes[k + 1] = i;
+         temp_index = i;
+         break;
+       }
     }
-
-    if ((boundaryCoordinate - static_cast<double>(i) * dx == 0) && (boundaryCoordinate != L))  {
-       indexLeft = i - 1;
-       indexMid = i;
-       indexRight = i + 1;
-       std::cout << "BOUNDARY IN THE GRID POINT!!!" << std::endl;
-       break;
-    }
-
   }
 
-  if (boundaryCoordinate == L) {
-    std::cout << "NO BOUNDARY!!" << std::endl;
-    indexLeft = 0;
-    indexMid = 0;
-    indexRight = 0;
+  for (size_t i = 0; i < numberOfLayers; ++i) {
+    std::cout << "Layer " << i << ": from " << static_cast<double>(indexes[i]) * dx << " m to " << (static_cast<double>(indexes[i + 1]) - 1) * dx << " m" << std::endl;
   }
+  std::cout << numberOfLayers << " layers in total." << std::endl;
 
-  if ( indexLeft == 0 && indexRight == 0) {
-    relLeft = 1;
-    relRight = 0;
-  }
-
-  else {
-    dxLeft = boundaryCoordinate - static_cast<double>(indexLeft) * dx;
-    dxRight = static_cast<double>(indexRight) * dx - boundaryCoordinate;
-    relLeft = dxLeft / dx;
-    relRight = dxRight / dx;
-  }
-
-  std::cout << "index left: " << indexLeft << std::endl;
-  std::cout << "index right: " << indexRight << std::endl;
-
-
-  //std::cout << indexLeft << " " << indexRight << " " << indexMid << std::endl;
-
-}
-
-Adsorption::Adsorption(std::string _displayName, std::vector<Component> _components, size_t _carrierGasComponent,
-                            size_t _numberOfGridPoints, size_t _printEvery, size_t _writeEvery, double _temperature,
-                           double _p_total, double _columnVoidFraction, double _pressureGradient,
-                           double _particleDensity, double _particleDensity1, double _boundary_len, double _columnEntranceVelocity, double _columnLength, //ADDED
-                           double _timeStep, size_t _numberOfTimeSteps, bool _autoSteps, bool _pulse, double _pulseTime,
-                           const MixturePrediction _mixture)
-    : displayName(_displayName),
-      components(_components),
-      carrierGasComponent(_carrierGasComponent),
-      Ncomp(_components.size()),
-      Ngrid(_numberOfGridPoints),
-      printEvery(_printEvery),
-      writeEvery(_writeEvery),
-      T(_temperature),
-      p_total(_p_total),
-      dptdx(_pressureGradient),
-      epsilon(_columnVoidFraction),
-      rho_p(_particleDensity),  // ADDED
-      rho_p1(_particleDensity1),
-      boundaryCoordinate(_boundary_len),
-      v_in(_columnEntranceVelocity),
-      L(_columnLength),
-      dx(L / static_cast<double>(Ngrid)),
-      dt(_timeStep),
-      Nsteps(_numberOfTimeSteps),
-      autoSteps(_autoSteps),
-      pulse(_pulse),
-      tpulse(_pulseTime),
-      mixture(_mixture),
-      mixture1(mixture),
-      maxIsothermTerms(mixture.getMaxIsothermTerms()),
-      prefactorLeft(Ncomp),
-      prefactorLeftGP(Ncomp),
-      prefactorRightGP(Ncomp),
-      prefactorRight(Ncomp),
-      Yi(Ncomp),
-      Yi1(Ncomp),
-      Xi(Ncomp),
-      Xi1(Ncomp),
-      Ni(Ncomp),
-      Ni1(Ncomp),
-      V(Ngrid + 1),
-      Vnew(Ngrid + 1),
-      Pt(Ngrid + 1),
-      P((Ngrid + 1) * Ncomp),
-      Pnew((Ngrid + 1) * Ncomp),
-      Q((Ngrid + 1) * Ncomp),
-      Qnew((Ngrid + 1) * Ncomp),
-      Qeq((Ngrid + 1) * Ncomp),
-      Qeq1((Ngrid + 1) * Ncomp),
-      Qeqnew((Ngrid + 1) * Ncomp),
-      Qeqnew1((Ngrid + 1) * Ncomp),
-      Dpdt((Ngrid + 1) * Ncomp),
-      Dpdtnew((Ngrid + 1) * Ncomp),
-      Dqdt((Ngrid + 1) * Ncomp),
-      Dqdtnew((Ngrid + 1) * Ncomp),
-      DTdt(Ngrid + 1),
-      DTdtnew(Ngrid + 1),
-      cachedP0((Ngrid + 1) * Ncomp * maxIsothermTerms),
-      cachedP01((Ngrid + 1) * Ncomp * maxIsothermTerms1),
-      cachedPsi((Ngrid + 1) * maxIsothermTerms),
-      cachedPsi1((Ngrid + 1) * maxIsothermTerms1)
-{
-
-  //std::cout << "IN CONSTURCOTR!" << std::endl;
-  indexLeft = 0;
-  indexMid = 0;
-  indexRight = 0;
-
-  if (boundaryCoordinate == L / 2) {
-    boundaryCoordinate = boundaryCoordinate - 0.001;
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    if (boundaryCoordinate -  static_cast<double>(i) * dx < 0)  {
-       indexLeft = i - 1;
-       indexMid = 0;
-       indexRight = i;
-       break;
-    }
-
-    if ((boundaryCoordinate - static_cast<double>(i) * dx == 0) && boundaryCoordinate != L)  {
-       indexLeft = i - 1;
-       indexMid = i;
-       indexRight = i + 1;
-       break;
-    }
-
-    
-  }
-
-  if (boundaryCoordinate == L) {
-    std::cout << "NO BOUNDARY!!" << std::endl;
-    indexLeft = 0;
-    indexMid = 0;
-    indexRight = 0;
-  }
-
-  std::cout << boundaryCoordinate << std::endl;
-  std::cout << L << std::endl;
-
-  if ( indexLeft == 0 ) {
-    relLeft = 1;
-    relRight = 0;
-  }
-
-  else {
-    dxLeft = boundaryCoordinate - static_cast<double>(indexLeft) * dx;
-    dxRight = static_cast<double>(indexRight) * dx - boundaryCoordinate;
-    relLeft = dxLeft / dx;
-    relRight = dxRight / dx;
-  }
-
-  initialize();
 }
 
 void Adsorption::initialize()
 {
-  // precomputed factor for mass transfer
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    prefactorLeft[j] = R * ((1.0 - epsilon) / epsilon) * rho_p * components[j].Kl;
+  size_t layerCounter = 0;
+
+  std::fill(P.begin(), P.end(), 0.0);
+  std::fill(Q.begin(), Q.end(), 0.0);
+  std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
+  std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
+
+  for (size_t j = 0; j < Ncomp; ++j) {
+    components[j].Kl_values.resize(Ngrid + 1, 0.0);
+    
+    // ДОБАВИТЬ ЭТОТ БЛОК: Защита от пустых массивов для инертного газа
+    if (components[j].isCarrierGas) {
+        if (components[j].D_values.empty()) {
+            components[j].D_values.resize(numberOfLayers, 0.0);
+        }
+        if (components[j].dH_values.empty()) {
+            components[j].dH_values.resize(numberOfLayers, 0.0);
+        }
+    }
   }
 
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    prefactorLeftGP[j] = R * ((1.0 - epsilon) / epsilon) * ( rho_p ) * ( components[j].Kl );
-  }
+  Kl_update(Tgs); // Grid-wise update of the mass transfer coefficients based on the initial temperature distribution
 
-  for (size_t j = 0; j < Ncomp; ++j)
+  for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    prefactorRightGP[j] = R * ((1.0 - epsilon1) / epsilon1) * ( rho_p1 ) * (components[j].Kl1 );
-  }
-  
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    prefactorRight[j] = R * ((1.0 - epsilon1) / epsilon1) * rho_p1 * components[j].Kl1;  // Tempreture excluded
+    if (i == indexes[layerCounter + 1]) {
+      layerCounter += 1;
+    }
+    for (size_t j = 0; j < Ncomp; ++j)
+    {
+      prefactors[i * Ncomp + j] = R * ((1.0 - eps[layerCounter]) / eps[layerCounter]) * ( rho_particle[layerCounter] ) * (components[j].Kl_values[i]);
+    }
   }
 
     // initial pressure along the column
   std::vector<double> pt_init(Ngrid + 1);
-  std::vector<double> pt_init1(Ngrid + 1);
 
   if (!cycle) {
     // set P and Q to zero
@@ -402,50 +279,30 @@ void Adsorption::initialize()
   // the K of the carrier gas is chosen as zero
   // so Qeq is zero for all components in the column after the entrance
   // only the values for Yi at the entrance are effected by adsorption
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] = std::max(P[i * Ncomp + j] / Pt[i], 0.0);
-      sum += Yi[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] /= sum;
-    }
+  size_t LayerCounterSite = 0;
+  //std::vector<double> QeqTmp((Ngrid + 1) * Ncomp);
+  for(size_t k = 1; k < indexes.size(); ++k) {
+    for(size_t i = indexes[k-1]; i < indexes[k]; ++i) {
+      double sum = 0.0;
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] = std::max(P[i * Ncomp + j] / Pt[i], 0.0);
+        sum += Yi[j];
+      }
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] /= sum;
+      }
 
-    iastPerformance += mixture.predictMixture(1, Yi, Pt[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
-                                              &cachedPsi[i * maxIsothermTerms], Tgs[i]);
+      iastPerformance += mixture.predictMixture(LayerCounterSite, Yi, Pt[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
+                                                &cachedPsi[i * maxIsothermTerms], Tgs[i]);
 
-    //iastPerformance1 += mixture.predictMixture(0, Yi1, pt_init1[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms], &cachedPsi1[i * maxIsothermTerms]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeq[i * Ncomp + j] = Ni[j];
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Qeq[i * Ncomp + j] = Ni[j];
+      }
     }
-  }
-
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    double sum1 = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] = std::max(P[i * Ncomp + j] / Pt[i], 0.0);
-      sum1 += Yi1[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] /= sum1;
-    }
-
-    iastPerformance1 += mixture.predictMixture(0, Yi1, Pt[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms1],   //clone
-                                              &cachedPsi1[i * maxIsothermTerms1], Tgs[i]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeq1[i * Ncomp + j] = Ni1[j];
-    }
+    LayerCounterSite += 1;
   }
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
@@ -461,7 +318,7 @@ void Adsorption::initialize()
 void Adsorption::run()
 {
 
-  // create the output files
+ // create the output files
   std::vector<std::ofstream> streams;
   for (size_t i = 0; i < Ncomp; i++)
   {
@@ -491,6 +348,11 @@ void Adsorption::run()
   movieStream << "# column " << column_nr++ << ": DTgsdt (derivative Tgs with t)" << std::endl;
   movieStream << "# column " << column_nr++ << ": DTWalldt (derivative Tw with t)" << std::endl;
 
+  for (size_t j = 0; j < Ncomp; ++j)
+  {
+    movieStream << "# column " << column_nr++ << ": component " << j << " Kl " << std::endl;
+  }
+
   for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
   {
     // compute new step
@@ -515,34 +377,18 @@ void Adsorption::run()
         movieStream << static_cast<double>(i) * dx << " ";
         movieStream << V[i] << " ";
         movieStream << Pt[i] << " ";
-        if ( indexLeft == 0 ) {
-          for (size_t j = 0; j < Ncomp; ++j)
+        for (size_t j = 0; j < Ncomp; ++j)
         {
           movieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
                       << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
                       << Dqdt[i * Ncomp + j] << " ";
         }
-        }
-
-        if ( i <= indexLeft && indexLeft != 0) {
-          for (size_t j = 0; j < Ncomp; ++j)
-        {
-          movieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
-                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
-        }
-
-        if ( i >= indexRight && indexLeft != 0) {
-          for (size_t j = 0; j < Ncomp; ++j)
-        {
-          movieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
-                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
-        }
-
         movieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+
+         for (size_t j = 0; j < Ncomp; ++j)
+        {
+          movieStream << components[j].Kl_values[i] << " ";
+        }
         
         movieStream << "\n";
       }
@@ -703,7 +549,7 @@ void Adsorption::computeStep(size_t step)
   // calculate the derivatives Dq/dt and Dp/dt based on Qeq, Q, V, and P
   //computeFirstDerivatives(Dqdt, Dpdt, DTdt, DTdtWall, Qeq, Qeq1, Q, V, P, Tgs, Tw);  // + DTdt, Tgs
 
-  computeFirstDerivatives2(Dqdt, Dpdt, DTdt, DTdtWall, Qeq, Qeq1, Q, V, P, Tgs, Tw);  // + DTdt, Tgs
+  computeFirstDerivatives2(Dqdt, Dpdt, DTdt, DTdtWall, Qeq, Q, V, P, Tgs, Tw);  // + DTdt, Tgs
 
   // Dqdt and Dpdt are calculated at old time step
   // make estimate for the new loadings and new gas phase partial pressures
@@ -718,6 +564,10 @@ void Adsorption::computeStep(size_t step)
       Tgsnew[i] = Tgs[i] + dt * DTdt[i];
       Twnew[i] = Tw[i] + dt * DTdtWall[i];
   }
+
+  
+  Kl_update(Tgsnew); // Grid-wise update of the mass transfer coefficients based on the new temperature distribution
+
 
   computeCpgMix(Pnew);
 
@@ -738,7 +588,7 @@ void Adsorption::computeStep(size_t step)
   //computeFirstDerivatives(Dqdtnew, Dpdtnew, DTdtnew, DTdtWallnew, Qeqnew, Qeqnew1, Qnew, Vnew, Pnew, Tgsnew, Twnew); // changed
   
 
-  computeFirstDerivatives2(Dqdtnew, Dpdtnew, DTdtnew, DTdtWallnew, Qeqnew, Qeqnew1, Qnew, Vnew, Pnew, Tgsnew, Twnew);  // + DTdt, Tgs
+  computeFirstDerivatives2(Dqdtnew, Dpdtnew, DTdtnew, DTdtWallnew, Qeqnew, Qnew, Vnew, Pnew, Tgsnew, Twnew);  // + DTdt, Tgs
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
   { 
@@ -750,6 +600,10 @@ void Adsorption::computeStep(size_t step)
     Tgsnew[i] = 0.75 * Tgs[i] + 0.25 * Tgsnew[i] + 0.25 * dt * DTdtnew[i];
     Twnew[i] = 0.75 * Tw[i] + 0.25 * Twnew[i] + 0.25 * dt * DTdtWallnew[i];
   }
+
+  
+  Kl_update(Tgsnew); // Grid-wise update of the mass transfer coefficients based on the new temperature distribution
+
 
   computeCpgMix(Pnew);
 
@@ -768,7 +622,7 @@ void Adsorption::computeStep(size_t step)
   // calculate the derivatives Dq/dt and Dp/dt based on Qeq, Q, V, and P at new (current) timestep
   //computeFirstDerivatives(Dqdtnew, Dpdtnew, DTdtnew, DTdtWallnew, Qeqnew, Qeqnew1, Qnew, Vnew, Pnew, Tgsnew, Twnew);
 
-  computeFirstDerivatives2(Dqdtnew, Dpdtnew, DTdtnew, DTdtWallnew, Qeqnew, Qeqnew1, Qnew, Vnew, Pnew, Tgsnew, Twnew);  // + DTdt, Tgs
+  computeFirstDerivatives2(Dqdtnew, Dpdtnew, DTdtnew, DTdtWallnew, Qeqnew, Qnew, Vnew, Pnew, Tgsnew, Twnew);  // + DTdt, Tgs
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
@@ -784,6 +638,10 @@ void Adsorption::computeStep(size_t step)
     Twnew[i] = (1.0 / 3.0) * Tw[i] + (2.0 / 3.0) * Twnew[i] +
                             (2.0 / 3.0) * dt * DTdtWallnew[i];
   }
+
+  
+  Kl_update(Tgsnew); // Grid-wise update of the mass transfer coefficients based on the new temperature distribution
+
 
   computeCpgMix(Pnew);
 
@@ -826,70 +684,48 @@ void Adsorption::computeStep(size_t step)
 
 void Adsorption::computeEquilibriumLoadings()
 {
-  // calculate new equilibrium loadings Qeqnew corresponding to the new timestep
-  for (size_t i = 0; i < Ngrid + 1; ++i)
-  {
-    // estimation of total pressure Pt at each grid point from partial pressures
+  size_t LayerCounterSite = 0;
+  //std::vector<double> QeqTmp((Ngrid + 1) * Ncomp);
+  for(size_t k = 1; k < indexes.size(); ++k) {
+    for(size_t i = indexes[k-1]; i < indexes[k]; ++i) {
+
     Pt[i] = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
       Pt[i] += std::max(0.0, Pnew[i * Ncomp + j]);
     }
 
-    // compute gas-phase mol-fractions
-    // force the gas-phase mol-fractions to be positive and normalized
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] = std::max(Pnew[i * Ncomp + j], 0.0);
-      sum += Yi[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi[j] /= sum;
-    }
+      double sum = 0.0;
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] = std::max(Pnew[i * Ncomp + j] / Pt[i], 0.0);
+        sum += Yi[j];
+      }
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Yi[j] /= sum;
+      }
 
-    // use Yi and Pt[i] to compute the loadings in the adsorption mixture via mixture prediction
-    iastPerformance += mixture.predictMixture(1, Yi, Pt[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
-                                              &cachedPsi[i * maxIsothermTerms], Tgsnew[i]);
+      iastPerformance += mixture.predictMixture(LayerCounterSite, Yi, Pt[i], Xi, Ni, &cachedP0[i * Ncomp * maxIsothermTerms],
+                                                &cachedPsi[i * maxIsothermTerms], Tgsnew[i]);
 
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeqnew[i * Ncomp + j] = Ni[j];
+      for (size_t j = 0; j < Ncomp; ++j)
+      {
+        Qeqnew[i * Ncomp + j] = Ni[j];
+      }
     }
+    LayerCounterSite += 1;
   }
 
   for (size_t i = 0; i < Ngrid + 1; ++i)
   {
-    // estimation of total pressure Pt at each grid point from partial pressures
     Pt[i] = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
       Pt[i] += std::max(0.0, Pnew[i * Ncomp + j]);
     }
-
-    // compute gas-phase mol-fractions
-    // force the gas-phase mol-fractions to be positive and normalized
-    double sum1 = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] = std::max(Pnew[i * Ncomp + j], 0.0);
-      sum1 += Yi1[j];
-    }
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Yi1[j] /= sum1;
-    }
-
-    // use Yi and Pt[i] to compute the loadings in the adsorption mixture via mixture prediction
-    iastPerformance1 += mixture.predictMixture(0, Yi1, Pt[i], Xi1, Ni1, &cachedP01[i * Ncomp * maxIsothermTerms1],  // clone
-                                              &cachedPsi1[i * maxIsothermTerms1], Tgsnew[i]);
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      Qeqnew1[i * Ncomp + j] = Ni1[j];
-    }
   }
+
 
   // check the total pressure at the outlet, it should not be negative
   if (Pt[0] + dptdx * L < 0.0)
@@ -899,201 +735,13 @@ void Adsorption::computeEquilibriumLoadings()
 }
 
 // calculate the derivatives Dq/dt and Dp/dt along the column
-void Adsorption::computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &p, const std::vector<double> &Tmp, std::vector<double> &TmpWall)
-{
-  double idx = 1.0 / dx;
-  double idx2 = 1.0 / (dx * dx);
-
-  // first gridpoint
-  if ( indexLeft == 0 ) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!first grid point!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      dqdt[0 * Ncomp + j] = components[j].Kl1 * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
-      dpdt[0 * Ncomp + j] = 0.0;
-      dTdt[0] = 0.0;
-      dTdtWall[0] = 0.0;
-    }
-  }
-
-  else {
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq1[0 * Ncomp + j] - q[0 * Ncomp + j]);
-      dpdt[0 * Ncomp + j] = 0.0;
-      dTdt[0] = 0.0;
-      dTdtWall[0] = 0.0;
-    }
-  }
-  
-
-  // middle gridpoints
-  for (size_t i = 1; i < Ngrid; i++)
-  {
-    if ( i < indexLeft ) {      // When grid point < iL
-      //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT I < IL !!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-      //std::cout << indexLeft<< std::endl;
-
-      // dT/dt calculation //
-      double sumH = 0;
-      std::fill(DPtdt.begin(), DPtdt.end(), 0);
-      
-      for (size_t j = 0; j < Ncomp; ++j)
-      {
-        sumH += components[j].dH * components[j].Kl * (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-        DPtdt[i] += dpdt[i * Ncomp + j];
-      }
-      
-      dTdt[i] = (lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 - epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i-1]) * idx +
-      + (1 - epsilon) * rho_p * sumH - 4 * h_in * (Tmp[i] - Tw[i]) / D_column_inner + epsilon * DPtdt[i]) / ((Pt[i] / (R * Tmp[i])) * epsilon * Cpg_mix[i] + (1 - epsilon) * rho_p * Cps); 
-      
-      // dT/dt wall calculation //
-
-      //dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw);
-
-      dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw) 
-            + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw); 
-
-
-    for (size_t j = 0; j < Ncomp; ++j)  
-    {
-      dqdt[i * Ncomp + j] = components[j].Kl * (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-      dpdt[i * Ncomp + j] =
-          (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-          components[j].D * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-          prefactorLeft[j] * Tmp[i] * (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]) + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i-1]) * idx + (p[i * Ncomp + j] / Tmp[i]) * DTdt[i]; // term_T added
-    }
-  }
-    if ( i == indexLeft) {  // When grid point in iL
-      //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-      //std::cout << indexLeft << std::endl; 
-
-       // dT/dt calculation //
-      double sumH = 0;
-      for (size_t j = 0; j < Ncomp; ++j)
-      {
-        sumH += components[j].dH * components[j].Kl * (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-      }
-      
-      dTdt[i] = (lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 - epsilon *(Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i-1]) * idx +
-      + (1 - epsilon) * rho_p * sumH - 4 * h_in * (Tmp[i] - Tw[i]) / D_column_inner) / ((Pt[i] / (R * Tmp[i])) * epsilon * Cpg_mix[i] + (1 - epsilon) * rho_p * Cps); 
-      
-      // dT/dt wall calculation //
-
-      //dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw);
-
-      dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw) 
-            + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw); 
-
-      for (size_t j = 0; j < Ncomp; ++j)
-    {
-      dqdt[i * Ncomp + j] = (components[j].Kl)* (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-      dpdt[i * Ncomp + j] =
-          (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-           (components[j].D ) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-          prefactorLeftGP[j] * Tmp[i] * (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]) + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i-1]) * idx + (p[i * Ncomp + j] / Tmp[i]) * DTdt[i]; // term_T added
-    }
-  }
-
-  if ( i == indexRight ) {         // When grid point in iR
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexRight << std::endl; 
-
-     // dT/dt calculation //
-      double sumH = 0;
-      for (size_t j = 0; j < Ncomp; ++j)
-      {
-        sumH += components[j].dH1 * components[j].Kl1 * (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-      }
-      
-      dTdt[i] = (lambda_ax_1 * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 - epsilon1 * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i-1]) * idx +
-      + (1 - epsilon1) * rho_p1 * sumH - 4 * h_in_1 * (Tmp[i] - Tw[i]) / D_column_inner) / ((Pt[i] / (R * Tmp[i])) * epsilon1 * Cpg_mix[i] + (1 - epsilon1) * rho_p1 * Cps_1); 
-      
-      // dT/dt wall calculation //
-
-     //dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw);
-      
-      dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw) 
-            + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw); 
-
-      for (size_t j = 0; j < Ncomp; ++j)
-    {
-      dqdt[i * Ncomp + j] = (components[j].Kl1)* (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-      dpdt[i * Ncomp + j] =
-          (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-          (components[j].D1) * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-          prefactorRightGP[j] * Tmp[i] * (q_eq[i * Ncomp + j] - q[i * Ncomp + j]) + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i-1]) * idx + (p[i * Ncomp + j] / Tmp[i]) * DTdt[i]; // term_T added
-    }
-  }
-
-    if ( i > indexRight ) {
-      //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-      //std::cout << indexRight << std::endl;      // When grid point > iR
-      double sumH = 0;
-      for (size_t j = 0; j < Ncomp; ++j)
-      {
-        sumH += components[j].dH1 * components[j].Kl1 * (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-      }
-      
-      dTdt[i] = (lambda_ax_1 * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 - epsilon1 * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i-1]) * idx +
-      + (1 - epsilon1) * rho_p1 * sumH - 4 * h_in_1 * (Tmp[i] - Tw[i]) / D_column_inner) / ((Pt[i] / (R * Tmp[i])) * epsilon1 * Cpg_mix[i] + (1 - epsilon1) * rho_p1 * Cps_1); 
-      
-      // dT/dt wall calculation //
-
-      //dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw);
-    
-      dTdtWall[i] = (4 * D_column_inner * h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw) 
-            + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw); 
-
-      for (size_t j = 0; j < Ncomp; ++j)
-    {
-      dqdt[i * Ncomp + j] = components[j].Kl1 * (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-      dpdt[i * Ncomp + j] =
-          (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx +
-          components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 -
-          prefactorRight[j] * Tmp[i] * (q_eq[i * Ncomp + j] - q[i * Ncomp + j]) + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i-1]) * idx + (p[i * Ncomp + j] / Tmp[i]) * DTdt[i]; // term_T added
-    }
-
-    }
-    
-    
-  }
-
-  double sumH = 0;
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    sumH += components[j].dH1 * (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-  }
-  
-  dTdt[Ngrid] = (lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid-1]) * idx +
-  + (1 - epsilon1) * rho_p1 * sumH - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner) / ((Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] + (1 - epsilon1) * rho_p1 * Cps_1); 
-  
-  // dT/dt wall calculation //
-
-  //dTdtWall[Ngrid] = (4 * D_column_inner * h_in * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw);
-
-  dTdtWall[Ngrid] = (4 * D_column_inner * h_in * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw) 
-            + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw); 
-
-  // last gridpoint
-  for (size_t j = 0; j < Ncomp; ++j)
-  {
-    dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-    dpdt[Ngrid * Ncomp + j] = (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx +
-                              components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 -
-                              prefactorRight[j] * Tmp[Ngrid] * (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]) + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * DTdt[Ngrid]; // term_T added
-  }
-}
 
 void Adsorption::computeFirstDerivatives2(
     std::vector<double> &dqdt, 
     std::vector<double> &dpdt, 
     std::vector<double> &dTdt, 
     std::vector<double> &dTdtWall,
-    const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+    const std::vector<double> &q_eq, const std::vector<double> &q,
     const std::vector<double> &v, const std::vector<double> &p, 
     const std::vector<double> &Tmp, std::vector<double> &TmpWall)
 {
@@ -1103,114 +751,68 @@ void Adsorption::computeFirstDerivatives2(
     // =========================================================
     // 1. ГРАНИЧНАЯ ТОЧКА (Вход)
     // =========================================================
-    if (indexLeft == 0) {
-        for (size_t j = 0; j < Ncomp; ++j) {
-            dqdt[0 * Ncomp + j] = components[j].Kl1 * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
-            dpdt[0 * Ncomp + j] = 0.0; // P_in фиксировано
-            dTdt[0] = 0.0;             // T_in фиксировано
-            dTdtWall[0] = 0.0;
-        }
-    } else {
-        // ... (аналогично для else, если вход в другом слое)
-         for (size_t j = 0; j < Ncomp; ++j) {
-            dqdt[0 * Ncomp + j] = components[j].Kl * (q_eq1[0 * Ncomp + j] - q[0 * Ncomp + j]);
-            dpdt[0 * Ncomp + j] = 0.0;
-            dTdt[0] = 0.0;
-            dTdtWall[0] = 0.0;
-        }
+   
+    for (size_t j = 0; j < Ncomp; ++j) {
+        dqdt[0 * Ncomp + j] = components[j].Kl_values[0] * (q_eq[0 * Ncomp + j] - q[0 * Ncomp + j]);
+        dpdt[0 * Ncomp + j] = 0.0; // P_in фиксировано
+        dTdt[0] = 0.0;             // T_in фиксировано
+        dTdtWall[0] = 0.0;
     }
-
+    
     // =========================================================
     // 2. ВНУТРЕННИЕ ТОЧКИ (Цикл по пространству)
     // =========================================================
+    size_t layerCounter = 0;
     for (size_t i = 1; i < Ngrid; i++)
     {
-        double sumH = 0.0;      
-        double C_adsorbed_total = 0.0; 
+      if (i == indexes[layerCounter + 1]) {
+        layerCounter += 1;
+      }
+      double sumH = 0.0;      
+      double C_adsorbed_total = 0.0; 
 
-        // -----------------------------------------------------
-        // ШАГ A: Расчет dqdt и тепла адсорбции (sumH)
-        // -----------------------------------------------------
-        // Логика выбора слоя (Left / Interface / Right)
-        if (i <= indexLeft) { 
-             // LAYER 0
-             for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-                dqdt[i * Ncomp + j] = components[j].Kl * driving_force;
-                sumH += components[j].dH * components[j].Kl * driving_force;
-                C_adsorbed_total += 0; // q[...] * Cpg если нужно
-             }
-        } else {
-             // LAYER 1
-             for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-                dqdt[i * Ncomp + j] = components[j].Kl1 * driving_force;
-                sumH += components[j].dH1 * components[j].Kl1 * driving_force;
-                C_adsorbed_total += 0; 
-             }
-        }
+      // Left points //
 
-        double current_epsilon = (i <= indexLeft) ? epsilon : epsilon1;
-        double current_rhop = (i <= indexLeft) ? rho_p : rho_p1;
-        double current_Cps = (i <= indexLeft) ? Cps : Cps_1;
-        double current_lambda_ax = (i <= indexLeft) ? lambda_ax : lambda_ax_1;
-        double current_h_in = (i <= indexLeft) ? h_in : h_in_1; 
+      // LAYER 0
+      for (size_t j = 0; j < Ncomp; ++j) {
+        double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+        dqdt[i * Ncomp + j] = components[j].Kl_values[i] * driving_force;
+        sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[i] * driving_force;
+        C_adsorbed_total += 0; 
+      }
 
-        // -----------------------------------------------------
-        // ШАГ B: Расчет dTdt (Температуры)
-        // -----------------------------------------------------
-        
+
         double dVdz = (v[i] - v[i-1]) * idx; 
-        double WorkExpansion = Pt[i] * dVdz * 0; // Включаем, если Cv
+        double WorkExpansion = Pt[i] * dVdz * 0; 
 
-        double Numerator = current_lambda_ax * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
-                         - current_epsilon * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
-                         + (1.0 - current_epsilon) * current_rhop * sumH 
-                         - 4.0 * current_h_in * (Tmp[i] - Tw[i]) / D_column_inner
-                         - current_epsilon * WorkExpansion;
+        double Numerator = lambda_x_layer[layerCounter] * (Tmp[i + 1] - 2 * Tmp[i] + Tmp[i - 1]) * idx2 
+                         - eps[layerCounter] * (Pt[i] / (R * Tmp[i])) * Cpg_mix[i] * v[i] * (Tmp[i] - Tmp[i - 1]) * idx 
+                         + (1.0 - eps[layerCounter]) * rho_particle[layerCounter] * sumH 
+                         - 4.0 * h_in_layer[layerCounter] * (Tmp[i] - TmpWall[i]) / D_column_inner
+                         - eps[layerCounter] * WorkExpansion;
 
-        double DenomTerm = (Pt[i] / (R * Tmp[i])) * current_epsilon * Cpg_mix[i] 
-                         + (1.0 - current_epsilon) * current_rhop * (current_Cps + C_adsorbed_total);
+        double DenomTerm = (Pt[i] / (R * Tmp[i])) * eps[layerCounter] * Cpg_mix[i] 
+                         + (1.0 - eps[layerCounter]) * rho_particle[layerCounter] * (Cps_layer[layerCounter] + C_adsorbed_total);
         
         dTdt[i] = Numerator / DenomTerm;
 
-        // -----------------------------------------------------
-        // ШАГ C: Расчет dpdt (Давления) - ТЕПЕРЬ СРАЗУ
-        // -----------------------------------------------------
-        
-        if (i <= indexLeft) {
-            // LAYER 0
-            for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq1[i * Ncomp + j] - q[i * Ncomp + j]);
-                
-                // Полная формула сразу:
-                dpdt[i * Ncomp + j] = 
-                      (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                    + components[j].D * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                    - prefactorLeft[j] * Tmp[i] * driving_force 
-                    + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                    + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
-            }
-        } else {
-            // LAYER 1
-            for (size_t j = 0; j < Ncomp; ++j) {
-                double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
-                
-                dpdt[i * Ncomp + j] = 
-                      (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
-                    + components[j].D1 * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
-                    - prefactorRight[j] * Tmp[i] * driving_force 
-                    + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
-                    + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
-            }
-        }
+        dTdtWall[i] = (4 * D_column_inner * h_in_layer[layerCounter] * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+                     + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
 
-        // Стена
-        dTdtWall[i] = (4 * D_column_inner * current_h_in * (Tmp[i] - TmpWall[i]) - 4 * D_column_out * h_out * (TmpWall[i] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
-                    + lambda_w * (TmpWall[i + 1] - 2.0 * TmpWall[i] + TmpWall[i - 1]) * idx2 / (rho_wall * Cpw);
+        for (size_t j = 0; j < Ncomp; ++j) {
+            double driving_force = (q_eq[i * Ncomp + j] - q[i * Ncomp + j]);
+            // Полная формула сразу:
+            dpdt[i * Ncomp + j] = 
+                  (v[i - 1] * p[(i - 1) * Ncomp + j] - v[i] * p[i * Ncomp + j]) * idx 
+                + components[j].D_values[layerCounter] * (p[(i + 1) * Ncomp + j] - 2.0 * p[i * Ncomp + j] + p[(i - 1) * Ncomp + j]) * idx2 
+                - prefactors[i * Ncomp + j] * Tmp[i] * driving_force 
+                + (v[i] * p[i * Ncomp + j] / Tmp[i]) * (Tmp[i] - Tmp[i - 1]) * idx
+                + (p[i * Ncomp + j] / Tmp[i]) * dTdt[i]; // <--- Добавили dTdt сразу
+      }
+
     }
 
-    // =========================================================
+   // =========================================================
     // 3. ПОСЛЕДНЯЯ ТОЧКА (i = Ngrid)
     // =========================================================
     {
@@ -1220,22 +822,22 @@ void Adsorption::computeFirstDerivatives2(
         // A. Сначала q и H (чтобы найти dTdt)
         for (size_t j = 0; j < Ncomp; ++j) {
              double driving_force = (q_eq[Ngrid * Ncomp + j] - q[Ngrid * Ncomp + j]);
-             dqdt[Ngrid * Ncomp + j] = components[j].Kl1 * driving_force;
-             sumH += components[j].dH1 * components[j].Kl1 * driving_force; 
+             dqdt[Ngrid * Ncomp + j] = components[j].Kl_values[Ngrid] * driving_force;
+             sumH += components[j].dH_values[layerCounter] * components[j].Kl_values[Ngrid] * driving_force; 
         }
 
         // B. Считаем dTdt
         double dVdz = (v[Ngrid] - v[Ngrid-1]) * idx; 
         double WorkExpansion = Pt[Ngrid] * dVdz * 0; 
 
-        double Numerator = lambda_ax_1 * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
+        double Numerator = lambda_x_layer[layerCounter] * (Tmp[Ngrid - 1] - Tmp[Ngrid]) * idx2 
                          - (Pt[Ngrid] / (R * Tmp[Ngrid])) * Cpg_mix[Ngrid] * v[Ngrid] * (Tmp[Ngrid] - Tmp[Ngrid - 1]) * idx 
-                         + (1 - epsilon1) * rho_p1 * sumH 
-                         - 4 * h_in_1 * (Tmp[Ngrid] - Tw[Ngrid]) / D_column_inner
-                         - epsilon1 * WorkExpansion;
+                         + (1 - eps[layerCounter]) * rho_particle[layerCounter] * sumH 
+                         - 4 * h_in_layer[layerCounter] * (Tmp[Ngrid] - TmpWall[Ngrid]) / D_column_inner
+                         - eps[layerCounter] * WorkExpansion;
 
-        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * epsilon1 * Cpg_mix[Ngrid] 
-                         + (1 - epsilon1) * rho_p1 * Cps_1;
+        double DenomTerm = (Pt[Ngrid] / (R * Tmp[Ngrid])) * eps[layerCounter] * Cpg_mix[Ngrid] 
+                         + (1 - eps[layerCounter]) * rho_particle[layerCounter] * Cps_layer[layerCounter];
         
         dTdt[Ngrid] = Numerator / DenomTerm;
 
@@ -1245,18 +847,34 @@ void Adsorption::computeFirstDerivatives2(
              
              dpdt[Ngrid * Ncomp + j] = 
                   (v[Ngrid - 1] * p[(Ngrid - 1) * Ncomp + j] - v[Ngrid] * p[Ngrid * Ncomp + j]) * idx 
-                + components[j].D1 * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
-                - prefactorRight[j] * Tmp[Ngrid] * driving_force
+                + components[j].D_values[layerCounter] * (p[(Ngrid - 1) * Ncomp + j] - p[Ngrid * Ncomp + j]) * idx2 
+                - prefactors[Ngrid * Ncomp + j] * Tmp[Ngrid] * driving_force
                 + (p[Ngrid * Ncomp + j] / Tmp[Ngrid]) * dTdt[Ngrid]; // <--- dTdt тут уже известно
         }
 
-        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_1 * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
+        dTdtWall[Ngrid] = (4 * D_column_inner * h_in_layer[layerCounter] * (Tmp[Ngrid] - TmpWall[Ngrid]) - 4 * D_column_out * h_out * (TmpWall[Ngrid] - Tamb)) / ((std::pow(D_column_out, 2) - std::pow(D_column_inner, 2)) * rho_wall * Cpw)
                         + lambda_w * (TmpWall[Ngrid - 1] - TmpWall[Ngrid]) * idx2 / (rho_wall * Cpw);
     }
 }
 
+void Adsorption::Kl_update(std::vector<double> &Tmpgs)
+{
+  size_t layerCounter = 0;
+  double Tcurrent;
 
-
+  for (size_t i = 0; i < Ngrid + 1; ++i)
+  {
+    Tcurrent = Tmpgs[i];
+    if (i == indexes[layerCounter + 1]) {
+      layerCounter += 1;
+    }
+    for (size_t j = 0; j < Ncomp; ++j)
+    {
+      components[j].Kl_func(Tcurrent, layerCounter, i);
+    }
+  }
+  
+}
 
 // calculate new velocity Vnew from Qnew, Qeqnew, Pnew, Pt
 void Adsorption::computeVelocity()
@@ -1378,234 +996,34 @@ void Adsorption::computeVelocityTemperatureLight()
   Vnew[0] = v_in;
 
   // middle gridpoints
+  size_t layerCounter = 0;
   for (size_t i = 1; i < Ngrid; ++i)
   {
-    // sum = derivative at the actual gridpoint i
-    if (i < indexLeft) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT DER!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
+    if (i == indexes[layerCounter + 1]) {
+        layerCounter += 1;
+    }
     double sum = 0.0;
     for (size_t j = 0; j < Ncomp; ++j)
     {
       sum =
-          sum - prefactorLeft[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-          components[j].D * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
+          sum - prefactors[i * Ncomp + j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
+          components[j].D_values[layerCounter] * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
     }
     double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
     // explicit version
     Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
-  }
-
-  if (i == indexLeft) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT DER=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum - prefactorLeftGP[j] * Tgsnew[i] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           (components[j].D ) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
-    }
-    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
-  }
-
-  if (i == indexRight) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT DER=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexRight << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum - prefactorRightGP[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-            (components[j].D1 ) * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
-    }
-    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
-  }
-
-  if (i > indexRight) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT DER!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexRight << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum - prefactorRight[j] * Tgsnew[i] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]) +
-           components[j].D1 * (Pnew[(i - 1) * Ncomp + j] - 2.0 * Pnew[i * Ncomp + j] + Pnew[(i + 1) * Ncomp + j]) * idx2;
-    }
-    double thermal_expansion = Vnew[i-1] * (Tgsnew[i] - Tgsnew[i-1]) / Tgsnew[i];
-    // explicit version
-    
-    Vnew[i] = Vnew[i - 1] + dx * (sum - Vnew[i - 1] * dptdx) / Pt[i] + thermal_expansion + dx * (DTdtnew[i] / Tgsnew[i]);
-  }
-    
   }
 
   // last grid point
   double sum = 0.0;
   for (size_t j = 0; j < Ncomp; ++j)
   {
-    sum = sum - prefactorRight[j] * Tgsnew[Ngrid] * (Qeqnew[Ngrid * Ncomp + j] - Qnew[Ngrid * Ncomp + j]) +
-          components[j].D1 * (Pnew[(Ngrid - 1) * Ncomp + j] - Pnew[Ngrid * Ncomp + j]) * idx2;
+    sum = sum - prefactors[Ngrid * Ncomp + j] * Tgsnew[Ngrid] * (Qeqnew[Ngrid * Ncomp + j] - Qnew[Ngrid * Ncomp + j]) +
+          components[j].D_values[layerCounter] * (Pnew[(Ngrid - 1) * Ncomp + j] - Pnew[Ngrid * Ncomp + j]) * idx2;
   }
   //double thermal_expansion = Vnew[Ngrid] * (Tgsnew[Ngrid] - Tgsnew[Ngrid-1]) / Tgsnew[Ngrid]; // must be zero T[N] = T[N-1]
   // explicit version
   Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (sum - Vnew[Ngrid - 1] * dptdx) / Pt[Ngrid];// + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]);
-}
-
-void Adsorption::computeVelocityTemperature()
-{
-  double idx2 = 1.0 / (dx * dx);
-
-  // first grid point
-  Vnew[0] = v_in;
-
-  // middle gridpoints
-  for (size_t i = 1; i < Ngrid; ++i)
-  {
-    // sum = derivative at the actual gridpoint i
-    if (i < indexLeft) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT DER!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum + prefactorLeft[j] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]);
-    }
-
-    double sum_disp = 0.0; // 
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-    double d2p_dz2 = (Pnew[(i + 1) * Ncomp + j] 
-                    - 2.0 * Pnew[i * Ncomp + j] 
-                    + Pnew[(i - 1) * Ncomp + j]) * idx2;
-
-    // Выбираем D в зависимости от слоя (Left/Right)
-    double D_val = components[j].D; 
-    // (Для граничных точек indexLeft/Right нужна аккуратная логика смешения, как у вас сделано для dpdt)
-
-    sum_disp += D_val * d2p_dz2;
-    }
-
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (DTdtnew[i] / Tgsnew[i]) + Vnew[i - 1] * (Tgsnew[i] - Tgsnew[i - 1]) / Tgsnew[i] - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / Pt[i] - sum * dx * Tgsnew[i] / Pt[i] + sum_disp * dx / Pt[i];
-  }
-
-  if (i == indexLeft) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX LEFT DER=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexLeft << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum + prefactorLeftGP[j] * (Qeqnew1[i * Ncomp + j] - Qnew[i * Ncomp + j]);
-    }
-
-    double sum_disp = 0.0; 
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-    double d2p_dz2 = (Pnew[(i + 1) * Ncomp + j] 
-                    - 2.0 * Pnew[i * Ncomp + j] 
-                    + Pnew[(i - 1) * Ncomp + j]) * idx2;
-
-    // Выбираем D в зависимости от слоя (Left/Right)
-    double D_val = components[j].D; 
-    // (Для граничных точек indexLeft/Right нужна аккуратная логика смешения, как у вас сделано для dpdt)
-
-    sum_disp += D_val * d2p_dz2;
-    }
-
-
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (DTdtnew[i] / Tgsnew[i]) + Vnew[i - 1] * (Tgsnew[i] - Tgsnew[i - 1]) / Tgsnew[i] - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / Pt[i] - sum * dx * Tgsnew[i] / Pt[i] + sum_disp * dx / Pt[i];
-  }
-
-  if (i == indexRight) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT DER=!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexRight << std::endl;
-     double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum + prefactorRightGP[j] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]);
-    }
-
-    double sum_disp = 0.0; 
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-    double d2p_dz2 = (Pnew[(i + 1) * Ncomp + j] 
-                    - 2.0 * Pnew[i * Ncomp + j] 
-                    + Pnew[(i - 1) * Ncomp + j]) * idx2;
-
-    double D_val = components[j].D1; 
-
-
-    sum_disp += D_val * d2p_dz2;
-    }
-
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (DTdtnew[i] / Tgsnew[i]) + Vnew[i - 1] * (Tgsnew[i] - Tgsnew[i - 1]) / Tgsnew[i] - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / Pt[i] - sum * dx * Tgsnew[i] / Pt[i] + sum_disp * dx / Pt[i];
-  
-  }
-
-  if (i > indexRight) {
-    //std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!INDEX RIGHT DER!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    //std::cout << indexRight << std::endl;
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum + prefactorRight[j] * (Qeqnew[i * Ncomp + j] - Qnew[i * Ncomp + j]);
-    }
-
-    double sum_disp = 0.0; 
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-    double d2p_dz2 = (Pnew[(i + 1) * Ncomp + j] 
-                    - 2.0 * Pnew[i * Ncomp + j] 
-                    + Pnew[(i - 1) * Ncomp + j]) * idx2;
-
-    double D_val = components[j].D1; 
-
-    sum_disp += D_val * d2p_dz2;
-    }
-
-    // explicit version
-    Vnew[i] = Vnew[i - 1] + dx * (DTdtnew[i] /Tgsnew[i]) + Vnew[i - 1] * (Tgsnew[i] - Tgsnew[i - 1]) / Tgsnew[i] - Vnew[i - 1] * (Pt[i] - Pt[i - 1]) / Pt[i] - sum * dx * Tgsnew[i] / Pt[i]  + sum_disp * dx / Pt[i];
-  }
-    
-  }
-
-  // last grid point
-    double sum = 0.0;
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-      sum =
-          sum + prefactorRight[j] * (Qeqnew[Ngrid * Ncomp + j] - Qnew[Ngrid * Ncomp + j]);
-    }
-
-    double sum_disp = 0.0;
-
-    for (size_t j = 0; j < Ncomp; ++j)
-    {
-    double d2p_dz2 = (Pnew[(Ngrid - 1) * Ncomp + j] 
-                    -  Pnew[Ngrid * Ncomp + j]) * idx2;
-
-    double D_val = components[j].D1; 
-
-    sum_disp += D_val * d2p_dz2;
-    }
-
-    // explicit version
-    Vnew[Ngrid] = Vnew[Ngrid - 1] + dx * (DTdtnew[Ngrid] / Tgsnew[Ngrid]) + Vnew[Ngrid - 1] * (Tgsnew[Ngrid] - Tgsnew[Ngrid - 1]) / Tgsnew[Ngrid] - Vnew[Ngrid - 1] * (Pt[Ngrid] - Pt[Ngrid - 1]) / Pt[Ngrid] - sum * dx * Tgsnew[Ngrid] / Pt[Ngrid] + sum_disp * dx / Pt[Ngrid];
 }
 
 void Adsorption::print() const { std::cout << repr(); }
@@ -1617,15 +1035,27 @@ std::string Adsorption::repr() const
   s += "=======================================================\n";
   s += "Display-name:                           " + displayName + "\n";
   s += "Temperature:                           " + std::to_string(T) + " [K]\n";
-  s += "RelRight:                              " + std::to_string(relRight) + " [K]\n";
-  s += "RelLeft:                               " + std::to_string(relLeft) + " [K]\n";
-  s += "NCOMP:                               " + std::to_string(Ncomp) + " [K]\n";
+  s += "NCOMP:                               " + std::to_string(Ncomp) + " [-]\n";
   s += "Column length:                         " + std::to_string(L) + " [m]\n";
-  s += "Column void-fraction for left layer:                  " + std::to_string(epsilon) + " [-]\n";
-  s += "Column void-fraction for left right:                  " + std::to_string(epsilon1) + " [-]\n";
-  s += "Particle density:                      " + std::to_string(rho_p) + " [kg/m^3]\n";
-  s += "2nd Particle density:                  " + std::to_string(rho_p1) + " [kg/m^3]\n";
-  s += "X-Coord of the boundary:               " + std::to_string(boundaryCoordinate) + " [m]\n";
+  for (size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Column void-fraction for layer " + std::to_string(i) + ":                  " + std::to_string(eps[i]) + " [-]\n";
+  }
+  for(size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Particle density for layer " + std::to_string(i) + ":                      " + std::to_string(rho_particle[i]) + " [kg/m^3]\n";
+  }
+  for(size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Particle heat capacity for layer " + std::to_string(i) + ":              " + std::to_string(Cps_layer[i]) + " [J/kg/K]\n";
+  }
+   s += "Wall density:                          " + std::to_string(rho_wall) + " [kg/m^3]\n";
+   s += "Wall heat capacity:                    " + std::to_string(Cpw) + " [J/kg/K]\n";
+   s += "Wall thermal conductivity:             " + std::to_string(lambda_w) + " [W/m/K]\n";
+  for (size_t i = 0; i < numberOfLayers; ++i)
+  {
+    s += "Axial thermal conductivity for layer " + std::to_string(i) + ":          " + std::to_string(lambda_x_layer[i]) + " [W/m/K]\n";
+  }
   s += "Total pressure:                        " + std::to_string(p_total) + " [Pa]\n";
   s += "Pressure gradient:                     " + std::to_string(dptdx) + " [Pa/m]\n";
   s += "Column entrance interstitial velocity: " + std::to_string(v_in) + " [m/s]\n";
@@ -1647,8 +1077,6 @@ std::string Adsorption::repr() const
 
   s += "Component data\n";
   s += "=======================================================\n";
-  s += "maximum isotherm terms for 1st layer:        " + std::to_string(maxIsothermTerms) + "\n";
-  s += "maximum isotherm terms for 2nd layer:        " + std::to_string(maxIsothermTerms1) + "\n";
   for (size_t i = 0; i < Ncomp; ++i)
   {
     s += components[i].repr();
@@ -1754,6 +1182,7 @@ void Adsorption::createMovieScripts()
   makeMovieStream << "CALL make_movie_Pnorm.bat %1 %2 %3 %4\n";
   makeMovieStream << "CALL make_movie_Dpdt.bat %1 %2 %3 %4\n";
   makeMovieStream << "CALL make_movie_Dqdt.bat %1 %2 %3 %4\n";
+  makeMovieStream << "CALL make_movie_Kl.bat %1 %2 %3 %4\n";
 #else
   std::ofstream makeMovieStream("make_movies");
   makeMovieStream << "#!/bin/sh\n";
@@ -1786,6 +1215,7 @@ void Adsorption::createMovieScripts()
   createMovieScriptColumnDpdt();
   createMovieScriptColumnDqdt();
   createMovieScriptColumnPnormalized();
+  createMovieScriptColumnKl();
 }
 
 void Adsorption::run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream)
@@ -2319,6 +1749,96 @@ void Adsorption::createMovieScriptColumnQeq()
   {
     stream << "    " << "'column.data'" << " us 1:" << std::to_string(5 + i * 6) << " index ev*i title '"
            << components[i].name << " (y_i=" << components[i].Yi0 << ")'"
+           << " with po lt " << i + 1 << (i < Ncomp - 1 ? ",\\" : "") << "\n";
+  }
+  stream << "}\n";
+}
+
+void Adsorption::createMovieScriptColumnKl()
+{
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  std::ofstream makeMovieStream("make_movie_Kl.bat");
+#else
+  std::ofstream makeMovieStream("make_movie_Kl");
+  makeMovieStream << "#!/bin/sh\n";
+  makeMovieStream << "cd -- \"$(dirname \"$0\")\"\n";
+#endif
+  makeMovieStream << movieScriptTemplateA("Kl");
+
+#if (__cplusplus >= 201703L)
+  std::filesystem::path path{"make_movie_Kl"};
+  std::filesystem::permissions(path, std::filesystem::perms::owner_exec, std::filesystem::perm_options::add);
+#else
+  chmod("make_movie_Kl", S_IRWXU);
+#endif
+
+  std::ofstream stream("plot_column_Kl");
+
+  stream << "set encoding utf8\n";
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  stream << "set terminal pngcairo size ARG2,ARG3 enhanced font 'Arial,10'\n";
+  stream << "set xlabel 'Adsorber position / [m]' font 'Arial,14'\n";
+  stream << "set ylabel 'Mass transfer coeff., {/Arial-Italic Kl} / [1/s]' offset 0.0,0 font 'Arial,14'\n";
+  stream << "set key outside top center horizontal samplen 2.5 height 0.5 spacing 1.5 font 'Arial, 10'\n";
+#else
+  stream << "set terminal pngcairo size ARG2,ARG3 enhanced font 'Helvetica,10'\n";
+  stream << "set xlabel 'Adsorber position / [m]' font 'Helvetica,18'\n";
+  stream << "set ylabel 'Mass transfer coeff., {/Helvetica-Italic Kl} / [1/s]' offset 0.0,0 font 'Helvetica,18'\n";
+  stream << "set key outside top center horizontal samplen 2.5 height 0.5 spacing 1.5 font 'Helvetica, 10'\n";
+#endif
+
+  // colorscheme from book 'gnuplot in action', listing 12.7
+  stream << "set linetype 1 pt 5 ps 1 lw 4 lc rgb '0xee0000'\n";
+  stream << "set linetype 2 pt 7 ps 1 lw 4 lc rgb '0x008b00'\n";
+  stream << "set linetype 3 pt 9 ps 1 lw 4 lc rgb '0x0000cd'\n";
+  stream << "set linetype 4 pt 11 ps 1 lw 4 lc rgb '0xff3fb3'\n";
+  stream << "set linetype 5 pt 13 ps 1 lw 4 lc rgb '0x00cdcd'\n";
+  stream << "set linetype 6 pt 15 ps 1 lw 4 lc rgb '0xcd9b1d'\n";
+  stream << "set linetype 7 pt  4 ps 1 lw 4 lc rgb '0x8968ed'\n";
+  stream << "set linetype 8 pt  6 ps 1 lw 4 lc rgb '0x8b8b83'\n";
+  stream << "set linetype 9 pt  8 ps 1 lw 4 lc rgb '0x00bb00'\n";
+  stream << "set linetype 10 pt 10 ps 1 lw 4 lc rgb '0x1e90ff'\n";
+  stream << "set linetype 11 pt 12 ps 1 lw 4 lc rgb '0x8b2500'\n";
+  stream << "set linetype 12 pt 14 ps 1 lw 4 lc rgb '0x000000'\n";
+
+  stream << "set bmargin 4\n";
+  stream << "set key title '" << displayName << " {/:Italic T}=" << T << " K, {/:Italic p_t}=" << p_total * 1e-3
+         << " kPa'\n";
+  stream << "stats 'column.data' nooutput\n";
+  stream << "max = 0.0;\n";
+  
+  // ИСПРАВЛЕНО: Поиск максимума по правильным колонкам Kl
+  for (size_t i = 0; i < Ncomp; i++) {
+    int col = 8 + static_cast<int>(Ncomp * 6) + static_cast<int>(i); 
+    stream << "  stats 'column.data' us " << col << " nooutput\n";
+    stream << "  if (max < STATS_max) { max = STATS_max; }\n";
+  }
+  
+  stream << "stats 'column.data' us 1 nooutput\n";
+  stream << "set xrange[0:STATS_max]\n";
+  
+  // Добавляем защиту на случай, если max = 0 (чтобы график не сломался)
+  stream << "if (max == 0) { max = 1.0; }\n";
+  stream << "set yrange[0:1.1*max]\n";
+  
+  stream << "ev=int(ARG1)\n";
+  stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
+  stream << "  plot \\\n";
+  
+  // ИСПРАВЛЕНО: Отрисовка линий из правильных колонок Kl
+  for (size_t i = 0; i < Ncomp; i++)
+  {
+    int col = 8 + static_cast<int>(Ncomp * 6) + static_cast<int>(i);
+    stream << "    " << "'column.data'" << " us 1:" << col << " index ev*i notitle "
+           << " with li lt " << i + 1 << ",\\\n";
+  }
+  
+  // ИСПРАВЛЕНО: Отрисовка точек из правильных колонок Kl
+  for (size_t i = 0; i < Ncomp; i++)
+  {
+    int col = 8 + static_cast<int>(Ncomp * 6) + static_cast<int>(i);
+    stream << "    " << "'column.data'" << " us 1:" << col << " index ev*i title '"
+           << components[i].name << "'"
            << " with po lt " << i + 1 << (i < Ncomp - 1 ? ",\\" : "") << "\n";
   }
   stream << "}\n";
