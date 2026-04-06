@@ -67,7 +67,7 @@ Adsorption::Adsorption(const InputReader &inputReader)
       Ncomp(components.size()),
       Ngrid(inputReader.numberOfGridPoints),
       printEvery(inputReader.printEvery),
-      writeEvery(inputReader.writeEvery),
+      writeEvery(inputReader.writeEveryAds),
       T(inputReader.temperature),
       Tamb(inputReader.Tamb),
       p_total(inputReader.totalPressure),
@@ -184,10 +184,10 @@ void Adsorption::initialize()
 {
   size_t layerCounter = 0;
 
-  std::fill(P.begin(), P.end(), 0.0);
-  std::fill(Q.begin(), Q.end(), 0.0);
-  std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
-  std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
+  // std::fill(P.begin(), P.end(), 0.0);
+  // std::fill(Q.begin(), Q.end(), 0.0);
+  // std::fill(Tgs.begin(), Tgs.end(), T);  // Solid and gas initial tempreture
+  // std::fill(Tw.begin(), Tw.end(), Tamb);   // Wall initial tempreture
 
   for (size_t j = 0; j < Ncomp; ++j) {
     components[j].Kl_values.resize(Ngrid + 1, 0.0);
@@ -232,6 +232,16 @@ void Adsorption::initialize()
 
     initializeFromFile(fileName, Ncomp, P, Q, Tgs, Tw);
   }
+
+  // for (size_t i = 0; i < Ngrid; ++i)
+  // {
+  //   for (size_t j = 0; j < Ncomp; ++j)
+  //   {
+  //     size_t index = i * Ncomp + j;
+  //     std::cout << "Grid point " << i << ", component " << j << ": Q = " << Q[index] << ", P = " << P[index]
+  //               << ", Tgs = " << Tgs[index] << std::endl;
+  //   }
+  // }
   
 
    for (size_t i = 0; i < Ngrid + 1; ++i) {
@@ -1242,34 +1252,20 @@ void Adsorption::run(std::vector<std::ofstream>& extStreams, std::ofstream& extM
         extMovieStream << static_cast<double>(i) * dx << " ";
         extMovieStream << V[i] << " ";
         extMovieStream << Pt[i] << " ";
-        if ( indexLeft == 0 ) {
+    
           for (size_t j = 0; j < Ncomp; ++j)
         {
           extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
                       << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
-        }
-
-        if ( i <= indexLeft && indexLeft != 0) {
-          for (size_t j = 0; j < Ncomp; ++j)
-        {
-          extMovieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
-                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
-        }
-
-        if ( i >= indexRight && indexLeft != 0) {
-          for (size_t j = 0; j < Ncomp; ++j)
-        {
-          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
-                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
+                      << Dqdt[i * Ncomp + j] << " " ;
         }
 
         extMovieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+
+        for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << components[j].Kl_values[i] << " ";
+        }
         
         extMovieStream << "\n";
       }
@@ -1905,6 +1901,10 @@ void Adsorption::createMovieScriptColumnP()
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";
+  for (size_t k = 0; k < Bd.size(); ++k) {
+      stream << "set arrow " << (k + 1) << " from " << Bd[k] << ", graph 0 to " << Bd[k] 
+             << ", graph 1 nohead dt 2 lc rgb 'black' lw 2\n";
+  }
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";

@@ -114,6 +114,10 @@ struct InputReader
   double pulseTime{0.0};             ///< The duration of the pulse in seconds.
   size_t printEvery{10000};          ///< The interval at which to print output.
   size_t writeEvery{10000};          ///< The interval at which to write output.
+  size_t writeEveryAds{10000};          ///< The interval at which to write output.
+  size_t writeEveryPurge{10000};          ///< The interval at which to write output.
+  size_t writeEveryBd{10000};          ///< The interval at which to write output.
+  size_t writeEveryPressurization{10000};          ///< The interval at which to write output.
   size_t numberOfGridPoints{100};    ///< The number of grid points in the column.
 
   double pressureStart{-1.0};          ///< The starting pressure for isotherm calculations.

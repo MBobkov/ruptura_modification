@@ -379,13 +379,15 @@ struct Adsorption
    *
    * Recieveing data from previous stage
    */
-  void DataReciever(std::vector<double> &Ps, std::vector<double> &Qs, std::vector<double> &Ts, std::vector<double> &Tws)
-  {
-    std::copy(Ps.begin(), Ps.end(), P.begin());
-    std::copy(Qs.begin(), Qs.end(), Q.begin());
-    std::copy(Ts.begin(), Ts.end(), Tgs.begin());
-    std::copy(Tws.begin(), Tws.end(), Tw.begin());
-  }
+  void DataReciever(const std::vector<double> &Ps, const std::vector<double> &Qs, 
+                  const std::vector<double> &Ts, const std::vector<double> &Tws)
+{
+    // Обычное присваивание гарантированно скопирует все данные и размеры
+    P = Ps;
+    Q = Qs;
+    Tgs = Ts;
+    Tw = Tws;
+}
    std::vector<double> get_pressure();
     /**
      * \brief Get data to insert in next stage.

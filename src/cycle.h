@@ -163,6 +163,7 @@ struct Cycle
   std::vector<double> Dqdt;       ///< Derivative of Q with respect to time.
   std::vector<double> DTdt;       ///< Derivative of T with respect to time.
   std::vector<double> DTdtWall;       ///< Derivative of T wall with respect to time.
+  std::vector<double> Bd;
 
   size_t CycleStep{1};
 

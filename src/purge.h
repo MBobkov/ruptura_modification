@@ -165,6 +165,7 @@ struct Purge
   double Cps_1;                              ///< Specific heat capacity of the adsorbent (solid phase) [J/(kg·K)]
   double Cpw;                              ///< Specific heat capacity of the wall material [J/(kg·K)]
   double boundaryCoordinate;  ///< boundary x coord
+  size_t numberOfLayers{0};                              ///< Number of layers in the column.
   double timeStage;
   
   
@@ -191,6 +192,7 @@ struct Purge
   std::pair<size_t, size_t> iastPerformance1{0, 0};  ///< Performance metrics for IAST calculations.
 
   // vector of size 'Ncomp'
+    std::vector<double> prefactors;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorLeft;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorLeftGP;  ///< Precomputed factors for mass transfer.
   std::vector<double> prefactorRightGP;  ///< Precomputed factors for mass transfer.
@@ -237,6 +239,13 @@ struct Purge
   std::vector<double> Cpg_mix;  ///< Average molar mass
   std::vector<double> Tinit;  ///< Tinit
   std::vector<double> DPtdt;
+  std::vector<double> Bd;
+  std::vector<size_t> indexes;
+  std::vector<double> rho_particle;  ///< Particle density along the column (for layered columns)
+  std::vector<double> eps; ///< Void fraction along the column (for layered columns)
+  std::vector<double> Cps_layer; ///< Specific heat capacity of the adsorbent along the column (for layered columns)
+  std::vector<double> lambda_x_layer; ///< Effective axial thermal conductivity of the layer along the column (for layered columns)
+  std::vector<double> h_in_layer; ///< internal heat transfer coefficient (layer→wall
   bool CarrierGasExistance{false};
   bool IsothermalRegime{false};
   bool cycle{false};
@@ -259,12 +268,10 @@ struct Purge
    * \param v Interstitial gas velocities.
    * \param p Partial pressures.
    */
-  void computeFirstDerivatives(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
-                                           const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);
+
 
   void computeFirstDerivatives2(std::vector<double> &dqdt, std::vector<double> &dpdt, std::vector<double> &dTdt, std::vector<double> &dTdtWall,
-                                           const std::vector<double> &q_eq, const std::vector<double> &q_eq1, const std::vector<double> &q,
+                                           const std::vector<double> &q_eq, const std::vector<double> &q,
                                            const std::vector<double> &v, const std::vector<double> &pp, const std::vector<double> &Tmpgs, std::vector<double> &TmpWall);                                         
 
   /**
@@ -365,13 +372,15 @@ struct Purge
   public:
   void run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream);
 
-  void DataReciever(std::vector<double> &Ps, std::vector<double> &Qs, std::vector<double> &Ts, std::vector<double> &Tws)
-  {
-    std::copy(Ps.begin(), Ps.end(), P.begin());
-    std::copy(Qs.begin(), Qs.end(), Q.begin());
-    std::copy(Ts.begin(), Ts.end(), Tgs.begin());
-    std::copy(Tws.begin(), Tws.end(), Tw.begin());
-  }
+  void DataReciever(const std::vector<double> &Ps, const std::vector<double> &Qs, 
+                  const std::vector<double> &Ts, const std::vector<double> &Tws)
+{
+    // Обычное присваивание гарантированно скопирует все данные и размеры
+    P = Ps;
+    Q = Qs;
+    Tgs = Ts;
+    Tw = Tws;
+}
    std::vector<double> get_pressure();
     /**
      * \brief Get data to insert in next stage.
@@ -386,6 +395,15 @@ struct Purge
   /**
      * \brief Change stage status.
      */
+    /**
+   * \brief Updates the mass transfer coefficients based on the current temperature.
+   */
+  void Kl_update(std::vector<double> &Tmpgs);
+   /**
+   * \brief Creates a script to generate a movie for the normalized partial pressures.
+   */
+  void createMovieScriptColumnKl();
+
 
 };
 

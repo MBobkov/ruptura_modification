@@ -90,7 +90,8 @@ Cycle::Cycle(const InputReader &inputReader):
   Dpdt((Ngrid + 1) * Ncomp),
   Dqdt((Ngrid + 1) * Ncomp),
   DTdt(Ngrid + 1),
-  DTdtWall(Ngrid + 1)
+  DTdtWall(Ngrid + 1),
+  Bd(inputReader.BoundaryCoords)
   {
 
   }
@@ -142,6 +143,10 @@ void Cycle::run()
   Q = cPressurization.get_q();
   Tgs = cPressurization.get_T();
 
+  std::cout << "\n" << std::endl;
+
+  std::cout << "Pressurization completed. Starting adsorption..." << std::endl;
+
   std::fill(Tgs.begin(), Tgs.end(), 295);
   cAdsorption.DataReciever(P, Q, Tgs, Tgs);
   cAdsorption.initialize();
@@ -152,6 +157,10 @@ void Cycle::run()
   Tgs = cAdsorption.get_T();
   std::fill(Tgs.begin(), Tgs.end(), 295);
 
+  std::cout << "\n" << std::endl;
+
+  std::cout << "Adsorption completed. Starting blowdown..." << std::endl;
+
   cBlowdown.DataReciever(P, Q, Tgs, Tgs);
 
   cBlowdown.initialize();
@@ -161,10 +170,15 @@ void Cycle::run()
   P = cBlowdown.get_pressure();
   Q = cBlowdown.get_q();
   Tgs = cBlowdown.get_T();
+  std::fill(Tgs.begin(), Tgs.end(), 295);
+
+  std::cout << "\n" << std::endl;
+
+  std::cout << "Blowdown completed. Starting purge..." << std::endl;
 
   reverseGridData(P, Ncomp, Ngrid);
   reverseGridData(Q, Ncomp, Ngrid);
-  std::reverse(Tgs.begin(), Tgs.end());
+  //std::reverse(Tgs.begin(), Tgs.end());
 
   cPurge.DataReciever(P, Q, Tgs, Tgs);
 
@@ -987,6 +1001,14 @@ void Cycle::createMovieScriptColumnP()
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";
+      for (size_t k = 0; k < Bd.size(); ++k) {
+      // dt 2 - dashtype 2 (штрихованная линия)
+      // lc rgb 'black' - цвет черный
+      // lw 2 - толщина линии
+      // graph 0 to graph 1 - линия идет от 0% до 100% высоты графика
+      stream << "set arrow " << (k + 1) << " from " << Bd[k] << ", graph 0 to " << Bd[k] 
+             << ", graph 1 nohead dt 2 lc rgb 'black' lw 2\n";
+  }
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";

@@ -1678,6 +1678,21 @@ void Breakthrough::createMovieScriptColumnP()
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";
+
+  // =========================================================================
+  // ДОБАВЛЕНИЕ ГРАНИЦ СЛОЕВ (ВЕРТИКАЛЬНЫЕ ЛИНИИ)
+  // Проходим по массиву Bd и добавляем стрелку без наконечника (линию) для каждой координаты
+  // =========================================================================
+  for (size_t k = 0; k < Bd.size(); ++k) {
+      // dt 2 - dashtype 2 (штрихованная линия)
+      // lc rgb 'black' - цвет черный
+      // lw 2 - толщина линии
+      // graph 0 to graph 1 - линия идет от 0% до 100% высоты графика
+      stream << "set arrow " << (k + 1) << " from " << Bd[k] << ", graph 0 to " << Bd[k] 
+             << ", graph 1 nohead dt 2 lc rgb 'black' lw 2\n";
+  }
+  // =========================================================================
+
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";

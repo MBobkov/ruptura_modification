@@ -67,7 +67,7 @@ Pressurization::Pressurization(const InputReader &inputReader)
       Ncomp(components.size()),
       Ngrid(inputReader.numberOfGridPoints),
       printEvery(inputReader.printEvery),
-      writeEvery(inputReader.writeEvery),
+      writeEvery(inputReader.writeEveryPressurization),
       T(inputReader.temperature),
       Tamb(inputReader.Tamb),
       p_total(inputReader.totalPressure),
@@ -449,8 +449,7 @@ void Pressurization::run()
 
 void Pressurization::run(std::vector<std::ofstream>& extStreams, std::ofstream& extMovieStream)
 {
-
-  for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
+for (size_t step = 0; (step < Nsteps || autoSteps); ++step)
   {
     // compute new step
     computeStep(step);
@@ -471,34 +470,20 @@ void Pressurization::run(std::vector<std::ofstream>& extStreams, std::ofstream& 
         extMovieStream << static_cast<double>(i) * dx << " ";
         extMovieStream << V[i] << " ";
         extMovieStream << Pt[i] << " ";
-        if ( indexLeft == 0 ) {
+    
           for (size_t j = 0; j < Ncomp; ++j)
         {
           extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
                       << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
-        }
-
-        if ( i <= indexLeft && indexLeft != 0) {
-          for (size_t j = 0; j < Ncomp; ++j)
-        {
-          extMovieStream << Q[i * Ncomp + j] << " " << Qeq1[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
-                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
-        }
-
-        if ( i >= indexRight && indexLeft != 0) {
-          for (size_t j = 0; j < Ncomp; ++j)
-        {
-          extMovieStream << Q[i * Ncomp + j] << " " << Qeq[i * Ncomp + j] << " " << P[i * Ncomp + j] << " "
-                      << P[i * Ncomp + j] / (Pt[i] * components[j].Yi0) << " " << Dpdt[i * Ncomp + j] << " "
-                      << Dqdt[i * Ncomp + j] << " ";
-        }
+                      << Dqdt[i * Ncomp + j] << " " ;
         }
 
         extMovieStream << Tgs[i] << " " << Tw[i] << " " << DTdt[i] << " " << DTdtWall[i] << " ";
+
+        for (size_t j = 0; j < Ncomp; ++j)
+        {
+          extMovieStream << components[j].Kl_values[i] << " ";
+        }
         
         extMovieStream << "\n";
       }
@@ -2055,6 +2040,10 @@ void Pressurization::createMovieScriptColumnP()
   stream << "stats 'column.data' us 1 nooutput\n";
   stream << "set xrange[0:STATS_max]\n";
   stream << "set yrange[0:1.1*max]\n";
+  for (size_t k = 0; k < Bd.size(); ++k) {
+      stream << "set arrow " << (k + 1) << " from " << Bd[k] << ", graph 0 to " << Bd[k] 
+             << ", graph 1 nohead dt 2 lc rgb 'black' lw 2\n";
+  }
   stream << "ev=int(ARG1)\n";
   stream << "do for [i=0:int((STATS_blocks-2)/ev)] {\n";
   stream << "  plot \\\n";

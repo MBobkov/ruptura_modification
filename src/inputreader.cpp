@@ -526,6 +526,30 @@ InputReader::InputReader(const std::string fileName) : components(), BoundaryCoo
         this->writeEvery = value;
         continue;
       }
+      if (caseInSensStringCompare(keyword, "WriteEveryAdsorption"))
+      {
+        size_t value = parse<size_t>(arguments, keyword, lineNumber);
+        this->writeEveryAds = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "WriteEveryBlowDown"))
+      {
+        size_t value = parse<size_t>(arguments, keyword, lineNumber);
+        this->writeEveryBd = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "WriteEveryPressurization"))
+      {
+        size_t value = parse<size_t>(arguments, keyword, lineNumber);
+        this->writeEveryPressurization = value;
+        continue;
+      }
+      if (caseInSensStringCompare(keyword, "WriteEveryPurge"))
+      {
+        size_t value = parse<size_t>(arguments, keyword, lineNumber);
+        this->writeEveryPurge = value;
+        continue;
+      }
       if (caseInSensStringCompare(keyword, "ColumnLength"))
       {
         double value = parseDouble(arguments, keyword, lineNumber);
